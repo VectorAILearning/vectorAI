@@ -37,30 +37,27 @@ jobs:
     name: 🐳 Docker Compose Build
     runs-on: ubuntu-latest
     needs: lint
-
+  
     steps:
-      - name: 📥 Checkout Code
+      - name: 📥 Checkout code
         uses: actions/checkout@v3
-
+  
       - name: 🛠️ Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-
-      - name: 🔐 Load .env files
+  
+      - name: 🔐 Copy env files
         run: |
           cp .env.example .env
           cp .env.frontend.example .env.frontend
-
-      - name: 🔍 Debug Docker Info
-        run: docker info
-
-      - name: 🧱 Build and Start Containers
+  
+      - name: 🧱 Build & up containers
         run: |
-          docker-compose -f docker-compose.yml down || true
-          docker-compose -f docker-compose.yml up -d --build
-          
-      - name: 📋 Docker Compose Logs
+          docker compose -f docker-compose.yml down || true
+          docker compose -f docker-compose.yml up -d --build
+  
+      - name: 📋 Docker logs (on failure)
         if: failure()
-        run: docker-compose logs --no-color
+        run: docker compose logs --no-color
 
   deploy:
     name: 🚀 Deploy to Production Server
