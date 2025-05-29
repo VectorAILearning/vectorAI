@@ -1,0 +1,109 @@
+services:
+  postgres_ailearning:
+    image: postgres:alpine
+    container_name: postgres_ailearning
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${AILEARNING_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${AILEARNING_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${AILEARNING_POSTGRES_DB}
+    ports:
+      - "${AILEARNING_POSTGRES_PORT}:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data_ailearning:/var/lib/postgresql/data
+    networks:
+      - ailearning_network
+
+  api:
+    build: backend
+    container_name: ailearning_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres_ailearning:
+        condition: service_healthy
+    networks:
+      - ailearning_network
+    volumes:
+      - ./backend/app:/app/app
+    command: >
+      sh -c "
+        cd /app/app &&
+        uv run alembic upgrade head &&
+        uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload --workers 1 --forwarded-allow-ips='*' --proxy-headers
+      "
+
+  redis:
+    image: redis:alpine
+    container_name: redis_ailearning
+    volumes:
+      - redis_data:/data
+    env_file:
+      - .env
+    ports:
+      - "6379:6379"
+    restart: always
+    networks:
+      - ailearning_network
+
+  arq_worker:
+    build: backend
+    container_name: ailearning_arq_worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - api
+    networks:
+      - ailearning_network
+    volumes:
+      - ./backend/app:/app/app
+    working_dir: /app/app
+    environment:
+      - PYTHONPATH=/app/app
+    command: >
+      uv run arq workers.arq_worker.WorkerSettings
+
+  frontend:
+    build: frontend
+    container_name: ailearning_frontend
+    env_file:
+      - .env.frontend
+    volumes:
+      - frontend_dist:/app/dist
+    command: sh -c "pnpm build && cp -r /app/dist/* /dist-output"
+
+  nginx:
+    image: nginx:alpine
+    container_name: ailearning_nginx
+    depends_on:
+      - api
+      - frontend
+    ports:
+      - "80:80"
+    volumes:
+      - frontend_dist:/usr/share/nginx/html
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - ailearning_network
+
+volumes:
+  postgres_data_ailearning:
+  redis_data:
+  app_data:
+  frontend_dist:
+
+
+networks:
+  ailearning_network:
+    name: ailearning_network
