@@ -2,6 +2,8 @@ from typing import Annotated
 
 from core.database import db_helper
 from fastapi import Depends
+
+from services.audit_service.repository import AuditRepository
 from services.auth.repository import AuthRepository
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +12,7 @@ class UnitOfWork:
     def __init__(self, session: AsyncSession):
         self.session = session
         self.auth_repo = AuthRepository(self.session)
+        self.audit_repo = AuditRepository(self.session)
 
     async def __aenter__(self):
         return self

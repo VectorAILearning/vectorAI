@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from pydantic import BaseModel
+from typing import List
 
 
 class AuditRequest(BaseModel):
@@ -13,3 +14,23 @@ class AuditResponse(BaseModel):
 
 class ResetChatRequest(BaseModel):
     session_id: UUID
+
+
+class LessonIn(BaseModel):
+    title: str
+    description: str = ""
+    estimated_time_hours: int = 3
+
+
+class ModuleIn(BaseModel):
+    title: str
+    description: str = ""
+    estimated_time_hours: int = 15
+    lessons: List[LessonIn] = []
+
+
+class CourseIn(BaseModel):
+    course_title: str
+    course_description: str = ""
+    estimated_time_hours: int = 60
+    modules: List[ModuleIn] = []

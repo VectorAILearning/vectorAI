@@ -13,17 +13,18 @@ router = APIRouter()
 
 
 async def pipe_broadcast(ws: WebSocket, channel: str):
-    try:
-        async with broadcaster.subscribe(channel) as sub:
+    async with broadcaster.subscribe(channel) as sub:
+        try:
             async for ev in sub:
                 if ws.application_state is not WebSocketState.CONNECTED:
                     break
                 await ws.send_text(ev.message)
+
                 with suppress(json.JSONDecodeError):
                     if json.loads(ev.message).get("type") == "course_created_done":
                         break
-    except asyncio.CancelledError:
-        pass
+        except asyncio.CancelledError:
+            raise
 
 
 @router.websocket("/ws/audit")
@@ -58,4 +59,4 @@ async def audit_websocket(ws: WebSocket):
     finally:
         with suppress(Exception):
             if ws.application_state is WebSocketState.CONNECTED:
-                await ws.close()
+                await ws.close(code=1001)
