@@ -2,8 +2,12 @@ import logging
 import time
 import uuid
 
-from services.audit_service.service import get_audit_service
+from agents.audit_agent import AuditAgent
+from services import get_cache_service
+from services.audit_service.service import AuditDialogService
+# from services.audit_service.service import get_audit_service
 from services.message_bus import push_and_publish
+from utils.uow import uow_context
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +27,8 @@ async def audit_full_pipeline_task(ctx, sid: str, history: str):
     log.info("pipeline start %s", sid)
 
     await push_and_publish(sid, _msg("bot", "Анализируем ваши предпочтения…"))
-    audit_service = await get_audit_service()
+    async with uow_context() as uow:
+        audit_service = AuditDialogService(uow=uow, redis_service=get_cache_service(), agent=AuditAgent())
     user_preference = audit_service.create_user_preference_by_audit_history(history)
     await push_and_publish(
         sid, _msg("system", f"Предпочтение пользователя: {user_preference}", "system")

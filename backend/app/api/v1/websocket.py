@@ -6,7 +6,7 @@ from contextlib import suppress
 from core.broadcast import broadcaster
 from fastapi import APIRouter, WebSocket
 from services import get_cache_service
-from services.audit_service import AuditDialogService
+from services.audit_service.service import AuditDialogService
 from starlette.websockets import WebSocketState
 
 router = APIRouter()

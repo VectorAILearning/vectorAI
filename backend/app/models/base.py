@@ -28,9 +28,9 @@ class SessionModel(Base):
     ip: Mapped[str] = mapped_column(String(64), nullable=True)
     user_agent: Mapped[str] = mapped_column(String(512), nullable=True)
 
-    courses: Mapped[list["CourseModel"]] = relationship(
-        cascade="all, delete-orphan", lazy="selectin"
-    )
-    preferences: Mapped[list["PreferenceModel"]] = relationship(
-        cascade="all, delete-orphan", lazy="selectin"
-    )
+    # courses: Mapped[list["CourseModel"]] = relationship(
+    #     cascade="all, delete-orphan", lazy="selectin"
+    # )
+    # preferences: Mapped[list["PreferenceModel"]] = relationship(
+    #     cascade="all, delete-orphan", lazy="selectin"
+    # )

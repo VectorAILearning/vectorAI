@@ -2,24 +2,10 @@ import json
 import time
 import uuid
 
-from agents.audit_agent import AuditAgent
-from core.database import db_helper
-from models import PreferenceModel
-from services import get_cache_service
-from services.audit_service.repository import AuditRepository
-from services.message_bus import push_and_publish
 from utils.uow import UnitOfWork
-from starlette.websockets import WebSocket
-
-
-import json
-import time
-import uuid
-
 from agents.audit_agent import AuditAgent
 from models import PreferenceModel
 from services.message_bus import push_and_publish
-from utils.uow import UnitOfWork
 from starlette.websockets import WebSocket
 
 
@@ -138,11 +124,11 @@ class AuditDialogService:
         return self.uow.audit_repo.create_user_preference(preference)
 
 
-async def get_audit_service() -> AuditDialogService | None:
-    redis = get_cache_service()
-    agent = AuditAgent()
-
-    async for session in db_helper.get_session():
-        uow = UnitOfWork(session=session)
-        return AuditDialogService(redis_service=redis, uow=uow, agent=agent)
-    return None
+# async def get_audit_service() -> AuditDialogService | None:
+#     redis = get_cache_service()
+#     agent = AuditAgent()
+#
+#     async for session in db_helper.get_session():
+#         uow = UnitOfWork(session=session)
+#         return AuditDialogService(redis_service=redis, uow=uow, agent=agent)
+#     return None
