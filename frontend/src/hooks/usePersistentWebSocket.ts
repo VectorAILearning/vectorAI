@@ -13,33 +13,39 @@ export function usePersistentWebSocket(
   const { shouldReconnect = true, reconnectDelay = 2000 } = opts;
 
   const shouldReconnectRef = useRef(shouldReconnect);
-  useEffect(() => {
-    shouldReconnectRef.current = shouldReconnect;
-  }, [shouldReconnect]);
+  useEffect(() => { shouldReconnectRef.current = shouldReconnect; }, [shouldReconnect]);
 
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimer = useRef<number | null>(null);
+  const wsRef           = useRef<WebSocket | null>(null);
+  const reconnectTimer  = useRef<number | null>(null);
+  const lastUrlRef      = useRef<string>("");
   const [connected, setConnected] = useState(false);
 
+  const hasActiveSocket = () =>
+    wsRef.current &&
+    (wsRef.current.readyState === WebSocket.OPEN ||
+     wsRef.current.readyState === WebSocket.CONNECTING);
+
   const connect = useCallback(() => {
+    const url = buildUrl();
+
+    if (url === lastUrlRef.current && hasActiveSocket()) return;
+
+    lastUrlRef.current = url;
+
     if (reconnectTimer.current) {
       clearTimeout(reconnectTimer.current);
       reconnectTimer.current = null;
     }
 
-    const url = buildUrl();
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
-    ws.onopen = () => setConnected(true);
+    ws.onopen    = () => setConnected(true);
     ws.onmessage = (e) => onMessage(e, ws);
-    ws.onerror = (e) => {
-      if (ws.readyState !== WebSocket.CLOSED) {
-        console.error("WS error", e);
-      }
-    };
-    ws.onclose = () => {
+    ws.onerror   = (e) => console.error("WS error", e);
+    ws.onclose   = () => {
       setConnected(false);
+      wsRef.current = null;
       if (shouldReconnectRef.current) {
         reconnectTimer.current = window.setTimeout(connect, reconnectDelay);
       }
@@ -50,11 +56,7 @@ export function usePersistentWebSocket(
     connect();
     return () => {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-
-      const ws = wsRef.current;
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
+      wsRef.current?.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

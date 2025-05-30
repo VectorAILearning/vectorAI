@@ -1,87 +1,83 @@
-import json
-
+# services/redis_cache.py
+import json, logging, time, uuid
 import redis.asyncio as aioredis
 from core.config import settings
 
+log = logging.getLogger(__name__)
+
+CHAT = "chat:{sid}"
+SESSION = "session:{sid}"
+RESET = "reset:{sid}"
+
 
 class RedisCacheService:
-    def __init__(self, redis_url: str):
-        self.redis_url = redis_url
-        self.redis = None
+    def __init__(self, url: str):
+        self._url = url
+        self._r = None
 
-    async def connect(self):
-        if not self.redis:
-            self.redis = aioredis.from_url(self.redis_url, decode_responses=True)
+    async def _conn(self):
+        if not self._r:
+            self._r = aioredis.from_url(self._url, decode_responses=True)
 
     async def close(self):
-        if self.redis:
-            await self.redis.close()
-            self.redis = None
+        if self._r:
+            await self._r.close()
+            self._r = None
 
-    async def session_exists(self, session_id: str) -> bool:
-        await self.connect()
-        return await self.redis.exists(session_id) > 0
+    async def session_exists(self, sid: str) -> bool:
+        await self._conn()
+        return await self._r.exists(SESSION.format(sid=sid)) == 1
 
-    async def create_session(self, session_id: str, ip: str, device: str):
-        await self.connect()
-        data = {"ip": ip, "device": device, "messages": []}
-        await self.redis.set(
-            session_id, json.dumps(data), ex=settings.REDIS_SESSION_TTL
+    async def create_session(self, sid: str, ip: str, dev: str):
+        await self._conn()
+        await self._r.set(
+            SESSION.format(sid=sid),
+            json.dumps({"ip": ip, "device": dev}),
+            ex=settings.REDIS_SESSION_TTL,
+            nx=True,
         )
 
-    async def get_messages(self, session_id: str):
-        await self.connect()
-        data = await self.redis.get(session_id)
-        if data:
-            return json.loads(data).get("messages", [])
-        return []
+    async def get_messages(self, sid: str):
+        await self._conn()
+        raw = await self._r.lrange(CHAT.format(sid=sid), 0, -1)
+        return [json.loads(x) for x in raw]
 
-    async def add_message(self, session_id: str, message: dict):
-        await self.connect()
-        data = await self.redis.get(session_id)
-        if data:
-            obj = json.loads(data)
-            obj.setdefault("messages", []).append(message)
-            await self.redis.set(session_id, json.dumps(obj))
-        else:
-            obj = {"messages": [message]}
-            await self.redis.set(session_id, json.dumps(obj))
+    async def add_message(self, sid: str, msg: dict):
+        await self._conn()
+        msg.setdefault("id", str(uuid.uuid4()))
+        msg.setdefault("ts", time.time())
+        await self._r.rpush(CHAT.format(sid=sid), json.dumps(msg))
+        log.debug("saved %s for %s", msg["id"], sid)
 
-    async def get_session_id_by_ip_device(self, ip: str, device: str) -> str | None:
-        await self.connect()
-        key = f"session_map:{ip}:{device}"
-        return await self.redis.get(key)
+    async def clear_messages(self, sid: str):
+        await self._conn()
+        await self._r.delete(CHAT.format(sid=sid))
 
-    async def set_session_id_for_ip_device(self, ip: str, device: str, session_id: str):
-        await self.connect()
-        key = f"session_map:{ip}:{device}"
-        await self.redis.set(key, session_id, ex=settings.REDIS_SESSION_TTL)
+    async def get_session_id_by_ip_device(self, ip: str, dev: str):
+        await self._conn()
+        return await self._r.get(f"session_map:{ip}:{dev}")
 
-    async def get_reset_count(self, session_id: str) -> int:
-        await self.connect()
-        key = f"reset_count:{session_id}"
-        value = await self.redis.get(key)
-        return int(value) if value is not None else 0
+    async def set_session_id_for_ip_device(self, ip: str, dev: str, sid: str):
+        await self._conn()
+        await self._r.set(f"session_map:{ip}:{dev}", sid, ex=settings.REDIS_SESSION_TTL)
 
-    async def increment_reset_count(self, session_id: str):
-        await self.connect()
-        key = f"reset_count:{session_id}"
-        count = await self.redis.incr(key)
-        await self.redis.expire(key, settings.REDIS_SESSION_TTL)
-        return count
+    async def get_reset_count(self, sid: str) -> int:
+        await self._conn()
+        val = await self._r.get(RESET.format(sid=sid))
+        return int(val) if val else 0
 
-    async def clear_messages(self, session_id: str):
-        await self.connect()
-        data = await self.redis.get(session_id)
-        if data:
-            obj = json.loads(data)
-            obj["messages"] = []
-            await self.redis.set(
-                session_id, json.dumps(obj), ex=settings.REDIS_SESSION_TTL
-            )
+    async def increment_reset_count(self, sid: str) -> int:
+        await self._conn()
+        key = RESET.format(sid=sid)
+        n = await self._r.incr(key)
+        await self._r.expire(key, settings.REDIS_SESSION_TTL)
+        return n
 
-    async def get_session_info(self, session_id: str):
-        await self.connect()
-        data = await self.redis.get(session_id)
-        reset_count = await self.get_reset_count(session_id)
-        return {"session": json.loads(data) if data else {}, "reset_count": reset_count}
+    async def get_session_info(self, sid: str):
+        await self._conn()
+        raw = await self._r.get(SESSION.format(sid=sid))
+        return {
+            "session": json.loads(raw) if raw else {},
+            "reset_count": await self.get_reset_count(sid),
+            "messages": await self.get_messages(sid),
+        }

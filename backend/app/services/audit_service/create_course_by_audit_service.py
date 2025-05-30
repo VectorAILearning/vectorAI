@@ -19,7 +19,7 @@ async def create_course_from_json(course_json: dict, username: str = "test"):
         course = CourseModel(
             title=course_json.get("course_title", "Курс без названия"),
             description=course_json.get("course_description", ""),
-            estimated_time_hours=course_json.get("estimated_time_hours"),
+            estimated_time_hours=course_json.get("estimated_time_hours", 60),
         )
         session.add(course)
         await session.commit()
@@ -31,7 +31,7 @@ async def create_course_from_json(course_json: dict, username: str = "test"):
                 course_id=course.id,
                 title=module_json.get("title", "Модуль без названия"),
                 description=module_json.get("description", ""),
-                estimated_time_hours=module_json.get("estimated_time_hours"),
+                estimated_time_hours=module_json.get("estimated_time_hours", 15),
             )
 
             session.add(module)
@@ -43,7 +43,7 @@ async def create_course_from_json(course_json: dict, username: str = "test"):
                     module_id=module.id,
                     title=lesson_json.get("title", "Урок без названия"),
                     description=lesson_json.get("description", ""),
-                    estimated_time_hours=lesson_json.get("estimated_time_hours"),
+                    estimated_time_hours=lesson_json.get("estimated_time_hours", 3),
                 )
                 session.add(lesson)
             await session.commit()

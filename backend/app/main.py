@@ -1,11 +1,21 @@
 from contextlib import asynccontextmanager
 
 from api.v1.router import api_v1_router
-from api.v1.websocket import websocket_router
+from api.v1.websocket import router as websocket_router
 from core.arq import get_arq_pool
 from core.broadcast import broadcaster
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+
+import logging, sys
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+    force=True,
+)
 
 
 @asynccontextmanager
