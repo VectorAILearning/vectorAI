@@ -1,3 +1,5 @@
+import logging
+import sys
 from contextlib import asynccontextmanager
 
 from api.v1.router import api_v1_router
@@ -6,9 +8,6 @@ from core.arq import get_arq_pool
 from core.broadcast import broadcaster
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-
-import logging, sys
 
 logging.basicConfig(
     level=logging.DEBUG,

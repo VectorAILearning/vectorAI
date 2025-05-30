@@ -1,10 +1,13 @@
-import logging, time, uuid
+import logging
+import time
+import uuid
+
 from agents.audit_agent import AuditAgent
 from agents.plan_agent import CoursePlanAgent
-from services.message_bus import push_and_publish
 from services.audit_service.create_course_by_audit_service import (
     create_course_from_json,
 )
+from services.message_bus import push_and_publish
 
 log = logging.getLogger(__name__)
 
