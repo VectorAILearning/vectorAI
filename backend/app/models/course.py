@@ -14,6 +14,9 @@ class CourseModel(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sessions.id"), nullable=True
+    )
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
@@ -27,6 +30,7 @@ class CourseModel(Base):
     preferences: Mapped[list["PreferenceModel"]] = relationship(
         back_populates="course", cascade="all, delete-orphan", lazy="selectin"
     )
+    session = relationship("SessionModel", back_populates="courses")
 
 
 class ModuleModel(Base):
@@ -66,23 +70,3 @@ class LessonModel(Base):
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     module: Mapped["ModuleModel"] = relationship(back_populates="lessons")
-
-
-class PreferenceModel(Base):
-    __tablename__ = "preferences"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
-    course_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("courses.id"), nullable=False
-    )
-    profile_summary: Mapped[str] = mapped_column(Text, nullable=True)
-
-    user: Mapped["UserModel"] = relationship("UserModel", back_populates="preferences")
-    course: Mapped["CourseModel"] = relationship(
-        "CourseModel", back_populates="preferences"
-    )

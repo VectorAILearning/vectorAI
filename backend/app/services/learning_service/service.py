@@ -1,21 +1,30 @@
-from agents.audit_agent import AuditAgent
 from agents.plan_agent import CoursePlanAgent
+from core.database import db_helper
+from models import CourseModel, PreferenceModel
+from schemas import PreferenceUpdate
 from utils.uow import UnitOfWork
 
 
-# TODO: Доделать сервис создания обучения
 class LearningService:
-    def __init__(self, websocket, redis_service, session_id: str, uow: UnitOfWork):
-        self.ws = websocket
-        self.redis = redis_service
-        self.sid = session_id
-        self.agent = AuditAgent()
+    def __init__(self, uow: UnitOfWork, agent: CoursePlanAgent):
+        self.agent = agent
         self.uow = uow
 
-    async def create_course_by_user_preference(self, preference: str):
-        course_plan = CoursePlanAgent().generate_course(preference)
-        course = self.uow.audit_repo.create_course_by_json(course_plan)
-        return {
-            "id": course.id,
-            "title": course.title,
-        }
+    async def create_course_by_user_preference(
+        self, preference: PreferenceModel, sid: str
+    ) -> CourseModel:
+        course_plan = self.agent.generate_course(preference.summary)
+        course = await self.uow.learning_repo.create_course_by_json(
+            course_plan, session_id=sid
+        )
+        await self.uow.audit_repo.update_user_preference(
+            preference.id, PreferenceUpdate(course_id=course.id)
+        )
+        return course
+
+
+async def get_learning_service() -> LearningService:
+    agent = CoursePlanAgent()
+    async with db_helper.session_factory() as session:
+        uow = UnitOfWork(session=session)
+        return LearningService(uow=uow, agent=agent)

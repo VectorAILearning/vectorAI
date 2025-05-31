@@ -1,0 +1,55 @@
+import uuid
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException
+
+from models import SessionModel
+from schemas.session import SessionUpdate, SessionCreate
+
+
+class SessionRepository:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def get_by_id(self, session_id: uuid.UUID) -> SessionModel:
+        session_db = await self.db.get(SessionModel, session_id)
+        if not session_db:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return session_db
+
+    async def create(self, session_data: SessionCreate) -> SessionModel:
+        session = SessionModel(**session_data.model_dump())
+        self.db.add(session)
+        await self.db.commit()
+        return session
+
+    async def update(
+        self,
+        session_id: uuid.UUID,
+        data: SessionUpdate,
+    ):
+        db_session = await self.db.get(SessionModel, session_id)
+        if not db_session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        data_dict = data.model_dump(exclude_unset=True)
+
+        for key, value in data_dict.items():
+            setattr(db_session, key, value)
+
+        await self.db.commit()
+        await self.db.refresh(db_session)
+        return db_session
+
+    async def switch_to_new(self, old_session: SessionModel) -> uuid.UUID:
+        new_session = SessionModel(
+            ip=old_session.ip,
+            user_agent=old_session.user_agent,
+        )
+        self.db.add(new_session)
+
+        old_session.user_id = None
+
+        await self.db.commit()
+        await self.db.refresh(new_session)
+        return new_session.id

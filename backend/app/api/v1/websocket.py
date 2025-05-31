@@ -1,13 +1,13 @@
 import asyncio
 import json
-import uuid
 from contextlib import suppress
 
 from core.broadcast import broadcaster
-from fastapi import APIRouter, WebSocket
-from services import get_cache_service
-from services.audit_service import AuditDialogService
+from fastapi import APIRouter, WebSocket, Depends
+from services.audit_service.service import AuditDialogService, get_audit_service
 from starlette.websockets import WebSocketState
+
+from services.session_service.service import SessionService, get_session_service
 
 router = APIRouter()
 
@@ -28,33 +28,27 @@ async def pipe_broadcast(ws: WebSocket, channel: str):
 
 
 @router.websocket("/ws/audit")
-async def audit_websocket(ws: WebSocket):
+async def audit_websocket(
+    ws: WebSocket,
+    session_service: SessionService = Depends(get_session_service),
+    audit_service: AuditDialogService = Depends(get_audit_service),
+):
     await ws.accept()
 
-    redis = get_cache_service()
     ip = ws.client.host
     device = ws.headers.get("user-agent", "unknown")
-    sid = (
-        ws.query_params.get("session_id")
-        or await redis.get_session_id_by_ip_device(ip, device)
-        or str(uuid.uuid4())
-    )
-
-    await redis.set_session_id_for_ip_device(ip, device, sid)
-    if not await redis.session_exists(sid):
-        await redis.create_session(sid, ip, device)
-
-    course_ready = any(
-        m.get("type") == "course_created_done" for m in await redis.get_messages(sid)
-    )
-
-    dialog = AuditDialogService(ws, redis, sid)
+    sid = ws.query_params.get(
+        "session_id"
+    ) or await session_service.get_or_create_session_by_ip_user_agent(ip, device)
 
     try:
-        await dialog.send_session_info()
+        await audit_service.send_session_info(ws, sid)
         async with asyncio.TaskGroup() as tg:
-            tg.create_task(dialog.run_dialog())
-            if not course_ready:
+            tg.create_task(audit_service.run_dialog(ws, sid))
+            if not any(
+                m.get("type") == "course_created_done"
+                for m in await audit_service.get_messages(sid)
+            ):
                 tg.create_task(pipe_broadcast(ws, f"chat_{sid}"))
     finally:
         with suppress(Exception):
