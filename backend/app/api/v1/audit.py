@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from schemas.audit import ResetChatRequest
-from services import get_cache_service, RedisCacheService
+from services import RedisCacheService, get_cache_service
 
 audit_router = APIRouter(prefix="/audit")
 

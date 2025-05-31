@@ -10,7 +10,9 @@ auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @auth_router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), uow: UnitOfWork = Depends(get_uow)):
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(), uow: UnitOfWork = Depends(get_uow)
+):
     service = AuthService(uow)
     user = await service.authenticate_user(form_data.username, form_data.password)
     if not user:
@@ -20,7 +22,9 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), uow: UnitOfWor
 
 
 @auth_router.post("/register", response_model=Token)
-async def register(user_data: UserRegister = Depends(), uow: UnitOfWork = Depends(get_uow)):
+async def register(
+    user_data: UserRegister = Depends(), uow: UnitOfWork = Depends(get_uow)
+):
     service = AuthService(uow)
     user = await service.register_user(user_data.username, user_data.password)
     if not user:

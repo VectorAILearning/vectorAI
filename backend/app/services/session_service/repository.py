@@ -1,10 +1,9 @@
 import uuid
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
-
 from models import SessionModel
-from schemas.session import SessionUpdate, SessionCreate
+from schemas.session import SessionCreate, SessionUpdate
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class SessionRepository:

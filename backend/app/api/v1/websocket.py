@@ -3,11 +3,10 @@ import json
 from contextlib import suppress
 
 from core.broadcast import broadcaster
-from fastapi import APIRouter, WebSocket, Depends
+from fastapi import APIRouter, Depends, WebSocket
 from services.audit_service.service import AuditDialogService, get_audit_service
-from starlette.websockets import WebSocketState
-
 from services.session_service.service import SessionService, get_session_service
+from starlette.websockets import WebSocketState
 
 router = APIRouter()
 

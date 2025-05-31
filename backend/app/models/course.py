@@ -1,4 +1,5 @@
 import uuid
+
 from core.database import Base
 from sqlalchemy import Boolean, Float, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID

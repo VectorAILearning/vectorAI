@@ -3,12 +3,11 @@ from typing import Annotated, AsyncIterator
 
 from core.database import db_helper
 from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from services.auth.repository import AuthRepository
 from services.audit_service.repository import AuditRepository
+from services.auth.repository import AuthRepository
 from services.learning_service.repository import LearningRepository
 from services.session_service.repository import SessionRepository
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class UnitOfWork:
@@ -37,14 +36,14 @@ class UnitOfWork:
 
 
 async def get_uow(
-    session: Annotated[AsyncSession, Depends(db_helper.get_session)]
+    session: Annotated[AsyncSession, Depends(db_helper.get_session)],
 ) -> AsyncIterator[UnitOfWork]:
     async with UnitOfWork(session) as uow:
         yield uow
+
 
 @asynccontextmanager
 async def uow_context() -> AsyncIterator[UnitOfWork]:
     async with db_helper.session_factory() as session:
         async with UnitOfWork(session) as uow:
             yield uow
-

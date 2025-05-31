@@ -1,10 +1,9 @@
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from core.database import db_helper
 from fastapi import APIRouter, Depends
 from models import CourseModel, ModuleModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 courses_router = APIRouter()
 

@@ -2,8 +2,8 @@ import logging
 import time
 import uuid
 
-from services.learning_service.service import get_learning_service
 from services.audit_service.service import get_audit_service
+from services.learning_service.service import get_learning_service
 from services.message_bus import push_and_publish
 
 log = logging.getLogger(__name__)

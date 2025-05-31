@@ -1,8 +1,8 @@
 import uuid
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from models import CourseModel, LessonModel, ModuleModel
 from schemas import CourseIn
-from models import CourseModel, ModuleModel, LessonModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class LearningRepository:
