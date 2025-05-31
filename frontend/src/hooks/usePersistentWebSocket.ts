@@ -13,17 +13,19 @@ export function usePersistentWebSocket(
   const { shouldReconnect = true, reconnectDelay = 2000 } = opts;
 
   const shouldReconnectRef = useRef(shouldReconnect);
-  useEffect(() => { shouldReconnectRef.current = shouldReconnect; }, [shouldReconnect]);
+  useEffect(() => {
+    shouldReconnectRef.current = shouldReconnect;
+  }, [shouldReconnect]);
 
-  const wsRef           = useRef<WebSocket | null>(null);
-  const reconnectTimer  = useRef<number | null>(null);
-  const lastUrlRef      = useRef<string>("");
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimer = useRef<number | null>(null);
+  const lastUrlRef = useRef<string>("");
   const [connected, setConnected] = useState(false);
 
   const hasActiveSocket = () =>
     wsRef.current &&
     (wsRef.current.readyState === WebSocket.OPEN ||
-     wsRef.current.readyState === WebSocket.CONNECTING);
+      wsRef.current.readyState === WebSocket.CONNECTING);
 
   const connect = useCallback(() => {
     const url = buildUrl();
@@ -40,10 +42,10 @@ export function usePersistentWebSocket(
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
-    ws.onopen    = () => setConnected(true);
+    ws.onopen = () => setConnected(true);
     ws.onmessage = (e) => onMessage(e, ws);
-    ws.onerror   = (e) => console.error("WS error", e);
-    ws.onclose   = () => {
+    ws.onerror = (e) => console.error("WS error", e);
+    ws.onclose = () => {
       setConnected(false);
       wsRef.current = null;
       if (shouldReconnectRef.current) {

@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useDispatch } from "react-redux";
 import { setSessionId } from "../store/sessionSlice";
 import { useNavigate } from "react-router-dom";
 import { usePersistentWebSocket } from "../hooks/usePersistentWebSocket";
+import { useAppDispatch } from "../store";
 
-type Message = { id?: string; text: string; who: "user" | "bot"; type?: string };
+type Message = {
+  id?: string;
+  text: string;
+  who: "user" | "bot";
+  type?: string;
+};
 
 export default function HomePage() {
   const [input, setInput] = useState("");
@@ -12,12 +17,14 @@ export default function HomePage() {
   const [resetCount, setResetCount] = useState(0);
   const [courseCreated, setCourseCreated] = useState(false);
 
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const sessionRef = useRef<string | null>(localStorage.getItem("session_id") || null);
+  const sessionRef = useRef<string | null>(
+    localStorage.getItem("session_id") || null,
+  );
   const seenRef = useRef<Set<string>>(new Set());
 
   const addIfNew = useCallback((msg: Message) => {
@@ -29,7 +36,9 @@ export default function HomePage() {
 
   const buildWsUrl = useCallback(() => {
     const wsHost = import.meta.env.VITE_WS_HOST;
-    return sessionRef.current ? `${wsHost}/ws/audit?session_id=${sessionRef.current}` : `${wsHost}/ws/audit`;
+    return sessionRef.current
+      ? `${wsHost}/ws/audit?session_id=${sessionRef.current}`
+      : `${wsHost}/ws/audit`;
   }, []);
 
   const handleWsMessage = useCallback(
@@ -52,7 +61,8 @@ export default function HomePage() {
             const last = data.messages.at(-1);
             setCourseCreated(last?.type === "course_created_done");
           }
-          if (typeof data.reset_count === "number") setResetCount(data.reset_count);
+          if (typeof data.reset_count === "number")
+            setResetCount(data.reset_count);
           return;
         }
         if (data.type === "course_created_done") {
@@ -60,7 +70,8 @@ export default function HomePage() {
           ws.close();
           return;
         }
-        if (!data.who || (data.who !== "user" && data.who !== "bot")) data.who = "bot";
+        if (!data.who || (data.who !== "user" && data.who !== "bot"))
+          data.who = "bot";
         addIfNew(data);
         setInput("");
       } catch {
@@ -71,13 +82,18 @@ export default function HomePage() {
     [addIfNew, dispatch],
   );
 
-  const { connected, send, reconnect } = usePersistentWebSocket(buildWsUrl, handleWsMessage, {
-    shouldReconnect: !courseCreated,
-    reconnectDelay: 2000,
-  });
+  const { connected, send, reconnect } = usePersistentWebSocket(
+    buildWsUrl,
+    handleWsMessage,
+    {
+      shouldReconnect: !courseCreated,
+      reconnectDelay: 2000,
+    },
+  );
 
   useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    if (chatRef.current)
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages]);
 
   const handleReset = async () => {
@@ -109,7 +125,8 @@ export default function HomePage() {
     connected &&
     !messages.some((m) => m.type === "system") &&
     !messages.some((m) => m.type === "audit_done") &&
-    (messages.length === 0 || (lastMsg?.who === "bot" && lastMsg.type === "chat"));
+    (messages.length === 0 ||
+      (lastMsg?.who === "bot" && lastMsg.type === "chat"));
 
   useEffect(() => {
     if (connected && !courseCreated) {
@@ -121,12 +138,12 @@ export default function HomePage() {
     !connected && !courseCreated && messages.length
       ? "Восстанавливаем соединение..."
       : courseCreated
-      ? "Курс создан! Получите его ниже."
-      : !canSend && messages.length
-      ? "Ждём ответа бота..."
-      : messages.length
-      ? "Введите ответ..."
-      : "Чему бы вы хотели научиться?";
+        ? "Курс создан! Получите его ниже."
+        : !canSend && messages.length
+          ? "Ждём ответа бота..."
+          : messages.length
+            ? "Введите ответ..."
+            : "Чему бы вы хотели научиться?";
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-base-100">
@@ -134,7 +151,9 @@ export default function HomePage() {
         <h1 className="text-5xl font-bold text-center mb-2 text-base-content">
           Твоё <span className="text-primary">развитие</span>
         </h1>
-        <p className="text-xl text-center text-base-content/70 mb-4">Без воды. Без давления. Всё по-твоему.</p>
+        <p className="text-xl text-center text-base-content/70 mb-4">
+          Без воды. Без давления. Всё по-твоему.
+        </p>
 
         <form className="flex gap-2 w-full" onSubmit={handleSubmit}>
           <label className="input input-bordered input-lg w-full flex items-center gap-2 bg-base-200 border-base-300 text-base-content">
@@ -147,7 +166,9 @@ export default function HomePage() {
               disabled={!canSend}
               className="bg-base-200 text-base-content flex-1"
             />
-            <kbd className="kbd kbd-sm text-base-content bg-base-100 border-base-300">Enter</kbd>
+            <kbd className="kbd kbd-sm text-base-content bg-base-100 border-base-300">
+              Enter
+            </kbd>
           </label>
         </form>
 
@@ -160,8 +181,13 @@ export default function HomePage() {
             {messages
               .filter((m) => m.type === "chat")
               .map((m, i) => (
-                <div key={m.id || i} className={`chat ${m.who === "user" ? "chat-end" : "chat-start"}`}>
-                  <div className={`chat-bubble ${m.who === "user" ? "chat-bubble-primary" : "bg-base-100 text-base-content border border-base-300"}`}>
+                <div
+                  key={m.id || i}
+                  className={`chat ${m.who === "user" ? "chat-end" : "chat-start"}`}
+                >
+                  <div
+                    className={`chat-bubble ${m.who === "user" ? "chat-bubble-primary" : "bg-base-100 text-base-content border border-base-300"}`}
+                  >
                     {m.text}
                   </div>
                 </div>
@@ -176,14 +202,19 @@ export default function HomePage() {
             </button>
           )}
           {courseCreated && (
-            <button className="btn btn-primary mt-4" onClick={() => navigate("/courses")}>
+            <button
+              className="btn btn-primary mt-4"
+              onClick={() => navigate("/courses")}
+            >
               Получить курс
             </button>
           )}
         </div>
 
         {messages.length > 0 && (
-          <div className="text-sm text-base-content/60 mt-2 text-center">Количество сбросов: {resetCount}</div>
+          <div className="text-sm text-base-content/60 mt-2 text-center">
+            Количество сбросов: {resetCount}
+          </div>
         )}
       </div>
     </div>
