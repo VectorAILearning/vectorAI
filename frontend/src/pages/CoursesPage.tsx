@@ -29,8 +29,8 @@ const CoursePage: React.FC = () => {
     fetch(`${apiHost}/api/v1/user-courses`)
       .then((res) => res.json())
       .then((data) => {
-        setCourses(data.courses);
-        setSelectedCourse(data.courses[0]);
+        setCourses(data);
+        setSelectedCourse(data[0]);
       });
   }, []);
 
