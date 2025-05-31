@@ -1,7 +1,8 @@
 import uuid
+
 from agents.plan_agent import CoursePlanAgent
 from models import CourseModel, PreferenceModel
-from schemas import PreferenceUpdate, CourseUpdate
+from schemas import CourseUpdate, PreferenceUpdate
 from utils.uow import UnitOfWork
 
 

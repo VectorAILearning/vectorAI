@@ -1,9 +1,9 @@
 import uuid
 
-from sqlalchemy import select
 from fastapi import HTTPException
 from models import PreferenceModel
 from schemas import PreferenceUpdate
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

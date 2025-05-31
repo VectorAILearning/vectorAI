@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from schemas.user import RefreshTokenRequest, Token, UserRegister
 from services.auth.service import AuthService
-
 from services.learning_service.service import LearningService
 from utils.auth_utils import get_current_user
 from utils.uow import UnitOfWork, get_uow
@@ -45,8 +44,7 @@ async def register(
 
 @auth_router.post("/refresh", response_model=Token)
 async def refresh_token(
-    token_request: RefreshTokenRequest,
-    uow: UnitOfWork = Depends(get_uow)
+    token_request: RefreshTokenRequest, uow: UnitOfWork = Depends(get_uow)
 ):
     service = AuthService(uow)
     try:
@@ -56,8 +54,7 @@ async def refresh_token(
         raise e
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка сервера"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка сервера"
         )
 
 
