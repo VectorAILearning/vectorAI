@@ -8,10 +8,6 @@ class UserBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
 
 class Token(BaseModel):
     access_token: str
@@ -19,5 +15,5 @@ class Token(BaseModel):
 
 
 class UserRegister(BaseModel):
-    email: EmailStr
+    username: EmailStr
     password: str

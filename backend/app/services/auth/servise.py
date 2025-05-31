@@ -31,8 +31,8 @@ class AuthService:
         )
         return encoded_jwt
 
-    async def authenticate_user(self, email: EmailStr, password: str):
-        user = await self.uow.auth_repo.get_by_email(email)
+    async def authenticate_user(self, username: EmailStr, password: str):
+        user = await self.uow.auth_repo.get_by_email(username)
         if not user or not self.verify_password(password, user.password):
             return None
         return user
