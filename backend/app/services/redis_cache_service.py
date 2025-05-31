@@ -6,6 +6,7 @@ import uuid
 
 import redis.asyncio as aioredis
 from core.config import settings
+from schemas import ResetChatRequest
 
 log = logging.getLogger(__name__)
 
@@ -69,6 +70,11 @@ class RedisCacheService:
         await self._conn()
         val = await self._r.get(RESET.format(sid=sid))
         return int(val) if val else 0
+
+    async def reset_chat(self, sid: str):
+        await self.clear_messages(sid)
+        await self.increment_reset_count(sid)
+        return {"status": "ok"}
 
     async def increment_reset_count(self, sid: str) -> int:
         await self._conn()

@@ -47,9 +47,9 @@ class AuditAgent(BaseAgent):
             "Предложи СЛЕДУЮЩИЙ единственный вопрос, который уточнит недостающий аспект. "
         )
 
-    @staticmethod
-    def summarize_profile_prompt(history: str, client_prompt: str) -> str:
-        return (
+    def summarize_profile_prompt(self, history: str) -> str:
+        prompt = (
             f"История вопросов и ответов:\n{history}\n"
             "Сделай краткое, но информативное описание пользователя, его цели, уровня и мотивации в одном абзаце для персонализации онлайн-курса. "
         )
+        return self.call_llm(prompt)

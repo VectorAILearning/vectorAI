@@ -112,6 +112,13 @@ export default function HomePage() {
     (messages.length === 0 || (lastMsg?.who === "bot" && lastMsg.type === "chat"));
 
   useEffect(() => {
+    const last = messages.at(-1);
+    if (last?.who === "bot" && last.type === "chat") {
+      inputRef.current?.focus();
+    }
+  }, [messages]);
+
+  useEffect(() => {
     if (connected && !courseCreated) {
       inputRef.current?.focus();
     }

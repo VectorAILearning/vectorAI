@@ -52,6 +52,7 @@ class CoursePlanAgent(BaseAgent):
             api_key=openai_settings.OPENAI_API_KEY,
             model=openai_settings.OPENAI_MODEL_AUDIT,
             temperature=0.2,
+            max_tokens=2000,
         )
         super().__init__(llm=llm)
 
