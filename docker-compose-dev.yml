@@ -113,3 +113,4 @@ volumes:
 networks:
   ailearning_network:
     name: ailearning_network
+    external: false
