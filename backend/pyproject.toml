@@ -27,7 +27,7 @@ dependencies = [
     "arq>=0.25.0",
     "broadcaster>=0.3.1",
     "pyjwt>=2.10.1",
-    "passlib>=1.7.4",
+    "passlib[bcrypt]>=1.7.4",
     "fastapi-security>=0.1.0",
     "email-validator>=2.2.0",
 ]
