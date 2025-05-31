@@ -3,10 +3,12 @@ import json
 from contextlib import suppress
 
 from core.broadcast import broadcaster
-from fastapi import APIRouter, Depends, WebSocket
-from services.audit_service.service import AuditDialogService, get_audit_service
-from services.session_service.service import SessionService, get_session_service
+from fastapi import APIRouter, WebSocket
+from services.audit_service.service import AuditDialogService
+from services.session_service.service import SessionService
 from starlette.websockets import WebSocketState
+
+from utils.uow import uow_context
 
 router = APIRouter()
 
@@ -27,26 +29,33 @@ async def pipe_broadcast(ws: WebSocket, channel: str):
 
 
 @router.websocket("/ws/audit")
-async def audit_websocket(
-    ws: WebSocket,
-    session_service: SessionService = Depends(get_session_service),
-    audit_service: AuditDialogService = Depends(get_audit_service),
-):
+async def audit_websocket(ws: WebSocket):
     await ws.accept()
 
     ip = ws.client.host
     device = ws.headers.get("user-agent", "unknown")
-    sid = ws.query_params.get(
-        "session_id"
-    ) or await session_service.get_or_create_session_by_ip_user_agent(ip, device)
+    sid = ws.query_params.get("session_id")
+    async with uow_context() as uow:
+        if sid:
+            await SessionService(uow).init_session_by_id(sid, ip, device)
+        else:
+            sid = await SessionService(uow).get_or_create_session_by_ip_user_agent(
+                ip, device
+            )
 
     try:
-        await audit_service.send_session_info(ws, sid)
+        await AuditDialogService().send_session_info(ws, sid)
+        async with uow_context() as uow:
+            course_exist = await uow.learning_repo.get_course_by_session_id(sid)
+            if course_exist:
+                await ws.close(code=1000)
+                return
+
         async with asyncio.TaskGroup() as tg:
-            tg.create_task(audit_service.run_dialog(ws, sid))
+            tg.create_task(AuditDialogService().run_dialog(ws, sid))
             if not any(
                 m.get("type") == "course_created_done"
-                for m in await audit_service.get_messages(sid)
+                for m in await AuditDialogService().get_messages(sid)
             ):
                 tg.create_task(pipe_broadcast(ws, f"chat_{sid}"))
     finally:

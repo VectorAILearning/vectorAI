@@ -1,13 +1,40 @@
 import uuid
 
+from fastapi import HTTPException
 from models import CourseModel, LessonModel, ModuleModel
-from schemas import CourseIn
+from schemas import CourseIn, CourseUpdate
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 
 class LearningRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def update_course(
+        self, course_id: uuid.UUID, data: CourseUpdate
+    ) -> CourseModel:
+        stmt = select(CourseModel).where(CourseModel.id == course_id)
+        result = await self.db.execute(stmt)
+        course = result.scalar_one_or_none()
+
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
+
+        update_data = data.model_dump(exclude_unset=True)
+
+        for field, value in update_data.items():
+            setattr(course, field, value)
+
+        await self.db.commit()
+        await self.db.refresh(course)
+        return course
+
+    async def get_course_by_session_id(self, session_id: str) -> CourseModel | None:
+        stmt = select(CourseModel).where(CourseModel.session_id == session_id)
+        result = await self.db.execute(stmt)
+        course = result.scalar_one_or_none()
+        return course
 
     async def create_course_by_json(
         self,

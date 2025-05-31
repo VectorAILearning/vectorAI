@@ -10,10 +10,8 @@ class SessionRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_by_id(self, session_id: uuid.UUID) -> SessionModel:
+    async def get_by_id(self, session_id: uuid.UUID) -> SessionModel | None:
         session_db = await self.db.get(SessionModel, session_id)
-        if not session_db:
-            raise HTTPException(status_code=404, detail="Session not found")
         return session_db
 
     async def create(self, session_data: SessionCreate) -> SessionModel:

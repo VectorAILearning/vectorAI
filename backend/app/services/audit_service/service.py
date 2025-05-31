@@ -3,7 +3,6 @@ import time
 import uuid
 
 from agents.audit_agent import AuditAgent
-from core.database import db_helper
 from models import PreferenceModel
 from services import RedisCacheService, get_cache_service
 from services.message_bus import push_and_publish
@@ -13,12 +12,14 @@ from utils.uow import UnitOfWork
 
 class AuditDialogService:
     def __init__(
-        self, redis_service: RedisCacheService, uow: UnitOfWork, agent: AuditAgent
+        self,
+        uow: UnitOfWork | None = None,
+        cache_service: RedisCacheService | None = None,
+        agent: AuditAgent | None = None,
     ):
-        self.redis_service = redis_service
-        self.agent = agent
+        self.cache_service = cache_service or get_cache_service()
+        self.agent = agent or AuditAgent()
         self.uow = uow
-        self.session_id = None
 
     @staticmethod
     def _history_str(q: list[str], a: list[str], first: str) -> str:
@@ -33,14 +34,14 @@ class AuditDialogService:
                 {
                     "type": "session_info",
                     "session_id": sid,
-                    "messages": await self.redis_service.get_messages(sid),
-                    "reset_count": await self.redis_service.get_reset_count(sid),
+                    "messages": await self.cache_service.get_messages(sid),
+                    "reset_count": await self.cache_service.get_reset_count(sid),
                 }
             )
         )
 
     async def get_messages(self, sid: str):
-        return await self.redis_service.get_messages(str(sid))
+        return await self.cache_service.get_messages(str(sid))
 
     async def run_dialog(self, ws: WebSocket, sid: str):
         stored = await self.get_messages(sid)
@@ -67,7 +68,7 @@ class AuditDialogService:
                 first_user = json.loads(raw)
             except Exception:
                 first_user = {"text": raw, "who": "user", "type": "chat"}
-            await self.redis_service.add_message(str(sid), first_user)
+            await self.cache_service.add_message(str(sid), first_user)
 
         if not q:
             ask = self.agent.call_llm(
@@ -91,7 +92,7 @@ class AuditDialogService:
                 u_ans = json.loads(raw)
             except Exception:
                 u_ans = {"text": raw, "who": "user", "type": "chat"}
-            await self.redis_service.add_message(sid, u_ans)
+            await self.cache_service.add_message(sid, u_ans)
             a.append(u_ans["text"])
 
             if step == self.agent.max_questions:
@@ -117,7 +118,7 @@ class AuditDialogService:
                 "id": str(uuid.uuid4()),
                 "ts": time.time(),
                 "who": "system",
-                "type": "system",
+                "type": "course_created_start",
                 "text": "Аудит завершён. Сейчас начнётся подготовка профиля и курса.",
             },
         )
@@ -132,12 +133,3 @@ class AuditDialogService:
     ) -> PreferenceModel:
         summary = self.agent.summarize_profile_prompt(audit_history)
         return await self.uow.audit_repo.create_user_preference(summary, sid=sid)
-
-
-async def get_audit_service() -> AuditDialogService:
-    redis_service = get_cache_service()
-    agent = AuditAgent()
-
-    async with db_helper.session_factory() as session:
-        uow = UnitOfWork(session=session)
-        return AuditDialogService(redis_service=redis_service, uow=uow, agent=agent)

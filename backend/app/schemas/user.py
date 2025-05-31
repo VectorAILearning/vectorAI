@@ -1,3 +1,5 @@
+import uuid
+
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 
@@ -16,3 +18,4 @@ class Token(BaseModel):
 class UserRegister(BaseModel):
     username: EmailStr
     password: str
+    session_id: uuid.UUID | None = None

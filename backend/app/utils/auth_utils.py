@@ -3,7 +3,7 @@ from core.config import settings
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from schemas.user import UserBase
-from services.auth.servise import AuthService
+from services.auth.service import AuthService
 from starlette import status
 from utils.uow import UnitOfWork, get_uow
 

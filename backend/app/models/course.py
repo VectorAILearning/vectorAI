@@ -26,10 +26,15 @@ class CourseModel(Base):
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="courses")
     modules: Mapped[list["ModuleModel"]] = relationship(
-        back_populates="course", cascade="all, delete-orphan", lazy="selectin"
+        back_populates="course",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
-    preferences: Mapped[list["PreferenceModel"]] = relationship(
-        back_populates="course", cascade="all, delete-orphan", lazy="selectin"
+    preference: Mapped["PreferenceModel"] = relationship(
+        back_populates="course",
+        cascade="all, delete-orphan",
+        uselist=False,
+        lazy="selectin",
     )
     session = relationship("SessionModel", back_populates="courses")
 

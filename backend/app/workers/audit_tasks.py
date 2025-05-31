@@ -1,10 +1,12 @@
+# workers/pipeline.py
 import logging
 import time
 import uuid
 
-from services.audit_service.service import get_audit_service
-from services.learning_service.service import get_learning_service
+from services.audit_service.service import AuditDialogService
+from services.learning_service.service import LearningService
 from services.message_bus import push_and_publish
+from utils.uow import uow_context
 
 log = logging.getLogger(__name__)
 
@@ -20,31 +22,37 @@ def _msg(who: str, text: str, type_: str = "chat") -> dict:
 
 
 async def create_learning_task(_, sid: str, history: str):
+    """
+    ARQ job: на базе истории аудита создать предпочтение пользователя и курс.
+    Весь цикл работает с БД через безопасные контексты, поэтому
+    ни одно соединение не «зависнет».
+    """
     log.info("pipeline start %s", sid)
-
     await push_and_publish(sid, _msg("bot", "Анализируем ваши предпочтения…"))
 
-    audit_service = await get_audit_service()
-    learning_service = await get_learning_service()
+    async with uow_context() as uow:
+        user_pref = await AuditDialogService(
+            uow
+        ).create_user_preference_by_audit_history(history, sid=sid)
 
-    user_preference = await audit_service.create_user_preference_by_audit_history(
-        history, sid=sid
-    )
-    await push_and_publish(
-        sid,
-        _msg(
-            "system", f"Предпочтение пользователя: {user_preference.summary}", "system"
-        ),
-    )
-    await push_and_publish(sid, _msg("bot", "Собираем для вас индивидуальный курс…"))
+        await push_and_publish(
+            sid,
+            _msg("system", f"Предпочтение пользователя: {user_pref.summary}", "system"),
+        )
+        await push_and_publish(
+            sid, _msg("bot", "Собираем для вас индивидуальный курс…")
+        )
 
-    course = await learning_service.create_course_by_user_preference(
-        user_preference, sid=sid
-    )
-    await push_and_publish(
-        sid,
-        _msg("bot", f"Курс «{course.title}» готов! Ознакомьтесь с деталями."),
-    )
-    await push_and_publish(sid, _msg("system", "Курс создан", "course_created_done"))
+        course = await LearningService(uow).create_course_by_user_preference(
+            user_pref, sid=sid
+        )
 
-    log.info("pipeline done %s", sid)
+        await push_and_publish(
+            sid,
+            _msg("bot", f"Курс «{course.title}» готов! Ознакомьтесь с деталями."),
+        )
+        await push_and_publish(
+            sid, _msg("system", "Курс создан", "course_created_done")
+        )
+
+        log.info("pipeline done %s", sid)

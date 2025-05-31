@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from typing import Self
 
 import jwt
 from core.config import settings
@@ -12,7 +11,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class AuthService:
-    def __init__(self: Self, uow: UnitOfWork) -> None:
+    def __init__(self, uow: UnitOfWork) -> None:
         self.uow = uow
 
     @staticmethod

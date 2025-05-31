@@ -1,4 +1,3 @@
-# services/redis_cache.py
 import json
 import logging
 import time
@@ -6,7 +5,6 @@ import uuid
 
 import redis.asyncio as aioredis
 from core.config import settings
-from schemas import ResetChatRequest
 
 log = logging.getLogger(__name__)
 

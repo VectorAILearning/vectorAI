@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.openapi.models import Response
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
 from schemas.user import Token, UserRegister
-from services.auth.servise import AuthService
+from services.auth.service import AuthService
+from services.learning_service.service import LearningService
 from utils.auth_utils import get_current_user
 from utils.uow import UnitOfWork, get_uow
 
@@ -25,11 +25,18 @@ async def login(
 async def register(
     user_data: UserRegister = Depends(), uow: UnitOfWork = Depends(get_uow)
 ):
-    service = AuthService(uow)
-    user = await service.register_user(user_data.username, user_data.password)
+    auth_service = AuthService(uow)
+    user = await auth_service.register_user(user_data.username, user_data.password)
+
     if not user:
         raise HTTPException(status_code=400, detail="User already exists")
-    access_token = service.create_access_token(data={"sub": user.email})
+
+    if user_data.session_id:
+        await LearningService(uow).initiate_user_learning_by_session_id(
+            user.id, user_data.session_id
+        )
+
+    access_token = auth_service.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
 

@@ -32,13 +32,13 @@ class PreferenceModel(Base):
         UUID(as_uuid=True), ForeignKey("sessions.id"), nullable=True
     )
     course_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("courses.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("courses.id"), unique=True, nullable=True
     )
     summary: Mapped[str] = mapped_column(Text, nullable=True)
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="preferences")
     course: Mapped["CourseModel"] = relationship(
-        "CourseModel", back_populates="preferences"
+        "CourseModel", back_populates="preference"
     )
     session = relationship("SessionModel", back_populates="preferences")
 
