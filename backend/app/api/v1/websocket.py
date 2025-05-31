@@ -7,7 +7,6 @@ from fastapi import APIRouter, WebSocket
 from services.audit_service.service import AuditDialogService
 from services.session_service.service import SessionService
 from starlette.websockets import WebSocketState
-
 from utils.uow import uow_context
 
 router = APIRouter()

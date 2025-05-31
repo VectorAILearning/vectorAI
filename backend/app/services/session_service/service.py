@@ -1,5 +1,5 @@
 from schemas.session import SessionCreate
-from services import get_cache_service, RedisCacheService
+from services import RedisCacheService, get_cache_service
 from utils.uow import UnitOfWork
 
 

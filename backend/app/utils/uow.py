@@ -4,6 +4,7 @@ from typing import Annotated, AsyncIterator
 from core.database import db_helper
 from fastapi import Depends
 from services.audit_service.repository import AuditRepository
+from services.auth.repositories.token_refresh import RefreshTokenRepository
 from services.auth.repository import AuthRepository
 from services.learning_service.repository import LearningRepository
 from services.session_service.repository import SessionRepository
@@ -17,6 +18,7 @@ class UnitOfWork:
         self.audit_repo = AuditRepository(self.session)
         self.learning_repo = LearningRepository(self.session)
         self.session_repo = SessionRepository(self.session)
+        self.refresh_token_repo = RefreshTokenRepository(self.session)
 
     async def __aenter__(self):
         return self
