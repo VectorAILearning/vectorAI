@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, Request
+from schemas.session import SessionInfoResponse
 from services import RedisCacheService, get_cache_service
 from services.session_service.service import SessionService
 from utils.uow import UnitOfWork, get_uow
-from schemas.session import SessionInfoResponse
 
 audit_router = APIRouter(prefix="/audit", tags=["audit"])
 

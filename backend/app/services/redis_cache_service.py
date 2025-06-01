@@ -106,7 +106,9 @@ class RedisCacheService:
 
     async def set_session_status(self, sid: str, status: str):
         await self._conn()
-        await self._r.set(SESSION_STATUS.format(sid=sid), status, ex=settings.REDIS_SESSION_TTL)
+        await self._r.set(
+            SESSION_STATUS.format(sid=sid), status, ex=settings.REDIS_SESSION_TTL
+        )
 
     async def get_session_status(self, sid: str) -> str:
         await self._conn()

@@ -3,7 +3,7 @@ import json
 from contextlib import suppress
 
 from core.broadcast import broadcaster
-from fastapi import APIRouter, WebSocket, Query
+from fastapi import APIRouter, Query, WebSocket
 from services.audit_service.service import AuditDialogService
 from services.session_service.service import SessionService
 from starlette.websockets import WebSocketState
