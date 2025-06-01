@@ -3,8 +3,8 @@ import uuid
 from fastapi import HTTPException
 from models import CourseModel, LessonModel, ModuleModel
 from schemas import CourseIn, CourseUpdate
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class LearningRepository:

@@ -3,6 +3,7 @@ import uuid
 from fastapi import HTTPException
 from models import SessionModel
 from schemas.session import SessionCreate, SessionUpdate
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -13,6 +14,16 @@ class SessionRepository:
     async def get_by_id(self, session_id: uuid.UUID) -> SessionModel | None:
         session_db = await self.db.get(SessionModel, session_id)
         return session_db
+
+    async def get_by_ip_user_agent(
+        self, ip: str, user_agent: str
+    ) -> SessionModel | None:
+        session_db = await self.db.execute(
+            select(SessionModel).where(
+                SessionModel.ip == ip, SessionModel.user_agent == user_agent
+            )
+        )
+        return session_db.scalar_one_or_none()
 
     async def create(self, session_data: SessionCreate) -> SessionModel:
         session = SessionModel(**session_data.model_dump())

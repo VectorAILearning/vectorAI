@@ -27,10 +27,6 @@ class RedisCacheService:
             await self._r.close()
             self._r = None
 
-    async def session_exists(self, sid: str) -> bool:
-        await self._conn()
-        return await self._r.exists(SESSION.format(sid=sid)) == 1
-
     async def create_session(self, sid: str, ip: str, dev: str):
         await self._conn()
         await self._r.set(
@@ -59,10 +55,6 @@ class RedisCacheService:
     async def get_session_id_by_ip_device(self, ip: str, dev: str):
         await self._conn()
         return await self._r.get(f"session_map:{ip}:{dev}")
-
-    async def set_session_id_for_ip_device(self, ip: str, dev: str, sid: str):
-        await self._conn()
-        await self._r.set(f"session_map:{ip}:{dev}", sid, ex=settings.REDIS_SESSION_TTL)
 
     async def get_reset_count(self, sid: str) -> int:
         await self._conn()

@@ -1,6 +1,4 @@
 import uuid
-from typing import List
-from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -11,10 +9,6 @@ class AuditRequest(BaseModel):
 
 class AuditResponse(BaseModel):
     user_preference: dict
-
-
-class ResetChatRequest(BaseModel):
-    session_id: UUID
 
 
 class PreferenceUpdate(BaseModel):

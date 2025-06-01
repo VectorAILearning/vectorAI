@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { setSessionId } from "../store/sessionSlice";
 import { useNavigate } from "react-router-dom";
 import { usePersistentWebSocket } from "../hooks/usePersistentWebSocket";
-import { useAppDispatch } from "../store";
 
 type Message = {
   id?: string;
@@ -15,16 +13,12 @@ export default function HomePage() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [resetCount, setResetCount] = useState(0);
-  const [courseCreated, setCourseCreated] = useState(false);
+  const [status, setStatus] = useState(() => localStorage.getItem("status") || "chating");
 
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const sessionRef = useRef<string | null>(
-    localStorage.getItem("session_id") || null,
-  );
   const seenRef = useRef<Set<string>>(new Set());
 
   const addIfNew = useCallback((msg: Message) => {
@@ -36,9 +30,7 @@ export default function HomePage() {
 
   const buildWsUrl = useCallback(() => {
     const wsHost = import.meta.env.VITE_WS_HOST;
-    return sessionRef.current
-      ? `${wsHost}/ws/audit?session_id=${sessionRef.current}`
-      : `${wsHost}/ws/audit`;
+    return `${wsHost}/ws/audit`;
   }, []);
 
   const handleWsMessage = useCallback(
@@ -46,27 +38,29 @@ export default function HomePage() {
       try {
         const data = JSON.parse(event.data);
         if (data.type === "session_info") {
-          if (data.session_id && data.session_id !== sessionRef.current) {
-            sessionRef.current = data.session_id;
-            localStorage.setItem("session_id", data.session_id);
-            dispatch(setSessionId(data.session_id));
-            reconnect();
-            return;
-          }
           if (Array.isArray(data.messages)) {
             data.messages.forEach((m: Message) => {
               if (m.id) seenRef.current.add(m.id);
             });
             setMessages(data.messages);
             const last = data.messages.at(-1);
-            setCourseCreated(last?.type === "course_created_done");
+            if (last?.type === "course_created_done") {
+              setStatus("course_created");
+              localStorage.setItem("status", "course_created");
+              ws.close();
+            }
           }
           if (typeof data.reset_count === "number")
             setResetCount(data.reset_count);
           return;
         }
+        if (data.type === "course_created_start") {
+          setStatus("course_creating");
+          localStorage.setItem("status", "course_creating");
+        }
         if (data.type === "course_created_done") {
-          setCourseCreated(true);
+          setStatus("course_created");
+          localStorage.setItem("status", "course_created");
           ws.close();
           return;
         }
@@ -79,14 +73,14 @@ export default function HomePage() {
         setInput("");
       }
     },
-    [addIfNew, dispatch],
+    [addIfNew],
   );
 
   const { connected, send, reconnect } = usePersistentWebSocket(
     buildWsUrl,
     handleWsMessage,
     {
-      shouldReconnect: !courseCreated,
+      shouldReconnect: status !== "course_created",
       reconnectDelay: 2000,
     },
   );
@@ -97,16 +91,14 @@ export default function HomePage() {
   }, [messages]);
 
   const handleReset = async () => {
-    const sessionId = sessionRef.current;
-    if (!sessionId) return;
     await fetch(`${import.meta.env.VITE_API_HOST}/api/v1/audit/reset-chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionId }),
     });
     setMessages([]);
     setInput("");
-    setCourseCreated(false);
+    setStatus("chating");
+    localStorage.setItem("status", "chating");
     reconnect();
   };
 
@@ -126,7 +118,8 @@ export default function HomePage() {
     !messages.some((m) => m.type === "system") &&
     !messages.some((m) => m.type === "audit_done") &&
     (messages.length === 0 ||
-      (lastMsg?.who === "bot" && lastMsg.type === "chat"));
+      (lastMsg?.who === "bot" && lastMsg.type === "chat")) &&
+    status === "chating"
 
   useEffect(() => {
     const last = messages.at(-1);
@@ -136,21 +129,28 @@ export default function HomePage() {
   }, [messages]);
 
   useEffect(() => {
-    if (connected && !courseCreated) {
+    if (connected && status === "chating") {
       inputRef.current?.focus();
     }
-  }, [connected, courseCreated]);
+  }, [connected, status]);
+
+  useEffect(() => {
+    localStorage.setItem("status", status);
+  }, [status]);
 
   const placeholder =
-    !connected && !courseCreated && messages.length
+    !connected && status === "chating" && messages.length
       ? "Восстанавливаем соединение..."
-      : courseCreated
+      : status === "course_created"
         ? "Курс создан! Получите его ниже."
-        : !canSend && messages.length
+        : status !== "chating" && messages.length
           ? "Ждём ответа бота..."
           : messages.length
             ? "Введите ответ..."
             : "Чему бы вы хотели научиться?";
+
+  const maxResets = 3;
+  const resetsLeft = maxResets - resetCount;
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-base-100">
@@ -170,7 +170,7 @@ export default function HomePage() {
               placeholder={placeholder}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              disabled={!canSend}
+              disabled={status !== "chating" || !canSend}
               className="bg-base-200 text-base-content flex-1"
             />
             <kbd className="kbd kbd-sm text-base-content bg-base-100 border-base-300">
@@ -204,11 +204,11 @@ export default function HomePage() {
 
         <div className="flex gap-2 justify-center">
           {messages.length > 0 && (
-            <button className="btn btn-secondary mt-4" onClick={handleReset}>
+            <button className="btn btn-secondary mt-4" onClick={handleReset} disabled={status !== "chating" || resetsLeft <= 0}>
               Сбросить чат
             </button>
           )}
-          {courseCreated && (
+          {status === "course_created" && (
             <button
               className="btn btn-primary mt-4"
               onClick={() => navigate("/courses")}
@@ -220,7 +220,7 @@ export default function HomePage() {
 
         {messages.length > 0 && (
           <div className="text-sm text-base-content/60 mt-2 text-center">
-            Количество сбросов: {resetCount}
+            Осталось сбросов: {resetsLeft}
           </div>
         )}
       </div>

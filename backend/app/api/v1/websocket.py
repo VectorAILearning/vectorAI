@@ -7,7 +7,6 @@ from fastapi import APIRouter, WebSocket
 from services.audit_service.service import AuditDialogService
 from services.session_service.service import SessionService
 from starlette.websockets import WebSocketState
-
 from utils.uow import uow_context
 
 router = APIRouter()
@@ -34,14 +33,11 @@ async def audit_websocket(ws: WebSocket):
 
     ip = ws.client.host
     device = ws.headers.get("user-agent", "unknown")
-    sid = ws.query_params.get("session_id")
+
     async with uow_context() as uow:
-        if sid:
-            await SessionService(uow).init_session_by_id(sid, ip, device)
-        else:
-            sid = await SessionService(uow).get_or_create_session_by_ip_user_agent(
-                ip, device
-            )
+        sid = await SessionService(uow).get_or_create_session_by_ip_user_agent(
+            ip, device
+        )
 
     try:
         await AuditDialogService().send_session_info(ws, sid)

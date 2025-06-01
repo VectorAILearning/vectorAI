@@ -1,13 +1,19 @@
-from fastapi import APIRouter, Depends
-from schemas.audit import ResetChatRequest
+from fastapi import APIRouter, Depends, Request
 from services import RedisCacheService, get_cache_service
+from services.session_service.service import SessionService
+from utils.uow import UnitOfWork, get_uow
 
 audit_router = APIRouter(prefix="/audit")
 
 
 @audit_router.post("/reset-chat")
 async def reset_chat(
-    body: ResetChatRequest,
+    request: Request,
     redis_service: RedisCacheService = Depends(get_cache_service),
+    uow: UnitOfWork = Depends(get_uow),
 ):
-    return await redis_service.reset_chat(str(body.session_id))
+    ip = request.client.host
+    device = request.headers.get("user-agent", "unknown")
+
+    sid = await SessionService(uow).get_or_create_session_by_ip_user_agent(ip, device)
+    return await redis_service.reset_chat(sid)
