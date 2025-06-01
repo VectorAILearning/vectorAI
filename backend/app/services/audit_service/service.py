@@ -45,8 +45,6 @@ class AuditDialogService:
 
     async def run_dialog(self, ws: WebSocket, sid: str):
         stored = await self.get_messages(sid)
-        if not stored:
-            await self.send_session_info(ws, sid)
 
         if any(m.get("type") in ("system", "audit_done") for m in stored):
             return
