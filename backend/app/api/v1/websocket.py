@@ -3,12 +3,12 @@ import json
 from contextlib import suppress
 
 from core.broadcast import broadcaster
+from core.config import settings
 from fastapi import APIRouter, Query, WebSocket
 from services.audit_service.service import AuditDialogService
 from services.session_service.service import SessionService
 from starlette.websockets import WebSocketState
 from utils.uow import uow_context
-from core.config import settings
 
 router = APIRouter()
 

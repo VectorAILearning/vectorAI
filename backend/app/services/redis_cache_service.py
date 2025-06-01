@@ -120,11 +120,10 @@ class RedisCacheService:
 
     async def add_generated_course(self, sid: str, course_data: dict):
         await self._conn()
-        await self._r.lpush(
-            GENERATED_COURSES.format(sid=sid),
-            json.dumps(course_data)
+        await self._r.lpush(GENERATED_COURSES.format(sid=sid), json.dumps(course_data))
+        await self._r.expire(
+            GENERATED_COURSES.format(sid=sid), settings.REDIS_SESSION_TTL
         )
-        await self._r.expire(GENERATED_COURSES.format(sid=sid), settings.REDIS_SESSION_TTL)
 
     async def get_generated_courses(self, sid: str) -> list[dict]:
         await self._conn()
