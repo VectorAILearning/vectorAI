@@ -5,6 +5,7 @@ from models import CourseModel, LessonModel, ModuleModel
 from schemas import CourseIn, CourseUpdate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 
 class LearningRepository:
@@ -74,3 +75,23 @@ class LearningRepository:
         await self.db.refresh(course)
 
         return course
+
+    async def get_course_by_id(self, course_id: uuid.UUID) -> CourseModel | None:
+        stmt = (
+            select(CourseModel)
+            .where(CourseModel.id == course_id)
+            .options(
+                selectinload(CourseModel.modules).selectinload(ModuleModel.lessons)
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_lesson_by_id(self, lesson_id: uuid.UUID) -> LessonModel | None:
+        stmt = (
+            select(LessonModel)
+            .where(LessonModel.id == lesson_id)
+            .options(selectinload(LessonModel.module).selectinload(ModuleModel.course))
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()

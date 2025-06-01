@@ -37,3 +37,9 @@ class LearningService:
         await self.uow.audit_repo.update_course_preference(
             data=PreferenceUpdate(user_id=user_id), preference_id=course.preference.id
         )
+
+    async def get_course_by_id(self, course_id: uuid.UUID):
+        return await self.uow.learning_repo.get_course_by_id(course_id)
+
+    async def get_lesson_by_id(self, lesson_id: uuid.UUID):
+        return await self.uow.learning_repo.get_lesson_by_id(lesson_id)

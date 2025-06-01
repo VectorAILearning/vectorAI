@@ -31,3 +31,38 @@ class CourseUpdate(BaseModel):
     is_completed: bool | None = None
     user_id: uuid.UUID | None = None
     session_id: uuid.UUID | None = None
+
+
+class LessonOut(BaseModel):
+    id: uuid.UUID
+    title: str
+    description: str
+    estimated_time_hours: float
+    is_completed: bool
+
+    class Config:
+        from_attributes = True
+
+
+class ModuleOut(BaseModel):
+    id: uuid.UUID
+    title: str
+    description: str | None = None
+    estimated_time_hours: float
+    is_completed: bool
+    lessons: list[LessonOut] = []
+
+    class Config:
+        from_attributes = True
+
+
+class CourseOut(BaseModel):
+    id: uuid.UUID
+    title: str
+    description: str
+    estimated_time_hours: float
+    is_completed: bool
+    modules: list[ModuleOut] = []
+
+    class Config:
+        from_attributes = True
