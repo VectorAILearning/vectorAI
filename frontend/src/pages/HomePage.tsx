@@ -16,6 +16,7 @@ export default function HomePage() {
   const [status, setStatus] = useState<string>("chating");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSessionReady, setIsSessionReady] = useState(false);
+  const [wsTimestamp, setWsTimestamp] = useState(Date.now());
 
   const navigate = useNavigate();
 
@@ -34,7 +35,7 @@ export default function HomePage() {
   const readyToConnect = !!sessionId && isSessionReady;
   const wsHost = import.meta.env.VITE_WS_HOST;
   const wsUrl = readyToConnect && sessionId
-    ? `${wsHost}/ws/audit?session_id=${encodeURIComponent(sessionId)}`
+    ? `${wsHost}/ws/audit?session_id=${encodeURIComponent(sessionId)}&t=${wsTimestamp}`
     : "";
 
   const handleWsMessage = useCallback(
@@ -81,22 +82,33 @@ export default function HomePage() {
     }
   },[addIfNew]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`${import.meta.env.VITE_API_HOST}/api/v1/audit/session-info`);
-        if (!res.ok) return;
-        const data = await res.json();
-        setMessages(Array.isArray(data.messages) ? data.messages : []);
-        setResetCount(typeof data.reset_count === "number" ? data.reset_count : 0);
-        setStatus(typeof data.status === "string" ? data.status : "chating");
-        if (typeof data.session_id === "string") {
-          setSessionId(data.session_id);
-          setIsSessionReady(true);
-        }
-      } catch {}
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const updateSessionState = useCallback((data: any) => {
+    setMessages(Array.isArray(data.messages) ? data.messages : []);
+    setResetCount(typeof data.reset_count === "number" ? data.reset_count : 0);
+    setStatus(typeof data.status === "string" ? data.status : "chating");
+    if (typeof data.session_id === "string") {
+      setSessionId(data.session_id);
+      setIsSessionReady(true);
+      setWsTimestamp(Date.now());
+    }
+  }, []);
+
+  const resetSessionState = useCallback(() => {
+    setMessages([]);
+    setInput("");
+    setStatus("chating");
+    setIsSessionReady(false);
+    setSessionId(null);
+    setTimeout(() => {
+      setIsSessionReady(true);
+      setWsTimestamp(Date.now());
+      reconnect();
+      focusInput();
+    }, 0);
+  }, []);
+
+  const focusInput = useCallback(() => {
+    inputRef.current?.focus();
   }, []);
 
   const { connected, send, reconnect } = usePersistentWebSocket(
@@ -121,26 +133,17 @@ export default function HomePage() {
       });
       if (!res.ok) throw new Error("Ошибка сброса чата");
       const data = await res.json();
-      setMessages(Array.isArray(data.messages) ? data.messages : []);
-      setResetCount(typeof data.reset_count === "number" ? data.reset_count : 0);
-      setStatus(typeof data.status === "string" ? data.status : "chating");
-      if (typeof data.session_id === "string") {
-        setSessionId(data.session_id);
-        setIsSessionReady(true);
-      }
+
+      setIsSessionReady(false);
+      setSessionId(null);
       setInput("");
       setTimeout(() => {
+        updateSessionState(data);
         reconnect();
-        inputRef.current?.focus();
+        focusInput();
       }, 0);
     } catch {
-      setMessages([]);
-      setInput("");
-      setStatus("chating");
-      setTimeout(() => {
-        reconnect();
-        inputRef.current?.focus();
-      }, 0);
+      resetSessionState();
     }
   };
 
@@ -197,6 +200,18 @@ export default function HomePage() {
   const resetsLeft = maxResets - resetCount;
 
   const checkSubscription = import.meta.env.VITE_CHECK_SUBSCRIPTION === 'true';
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_HOST}/api/v1/audit/session-info`);
+        if (!res.ok) return;
+        const data = await res.json();
+        updateSessionState(data);
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-base-100">
