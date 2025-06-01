@@ -15,5 +15,7 @@ async def reset_chat(
     ip = request.client.host
     device = request.headers.get("user-agent", "unknown")
 
-    sid = await SessionService(uow).get_or_create_session_by_ip_user_agent(ip, device)
+    sid = await SessionService(uow).get_session_id_by_ip_user_agent(ip, device)
+    if not sid:
+        return None
     return await redis_service.reset_chat(sid)

@@ -22,10 +22,11 @@ export default function HomePage() {
   const seenRef = useRef<Set<string>>(new Set());
 
   const addIfNew = useCallback((msg: Message) => {
-    if (!msg.id || !seenRef.current.has(msg.id)) {
-      if (msg.id) seenRef.current.add(msg.id);
-      setMessages((prev) => [...prev, msg]);
-    }
+    setMessages((prev) => {
+      if (msg.id && prev.some(m => m.id === msg.id)) return prev;
+      if (!msg.id && prev.length && prev[prev.length - 1].text === msg.text && prev[prev.length - 1].type === msg.type) return prev;
+      return [...prev, msg];
+    });
   }, []);
 
   const buildWsUrl = useCallback(() => {
@@ -34,47 +35,52 @@ export default function HomePage() {
   }, []);
 
   const handleWsMessage = useCallback(
-    (event: MessageEvent, ws: WebSocket) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "session_info") {
-          if (Array.isArray(data.messages)) {
-            data.messages.forEach((m: Message) => {
-              if (m.id) seenRef.current.add(m.id);
-            });
-            setMessages(data.messages);
-            const last = data.messages.at(-1);
-            if (last?.type === "course_created_done") {
-              setStatus("course_created");
-              localStorage.setItem("status", "course_created");
-              ws.close();
-            }
-          }
-          if (typeof data.reset_count === "number")
-            setResetCount(data.reset_count);
-          return;
-        }
-        if (data.type === "course_created_start") {
-          setStatus("course_creating");
-          localStorage.setItem("status", "course_creating");
-        }
-        if (data.type === "course_created_done") {
-          setStatus("course_created");
-          localStorage.setItem("status", "course_created");
-          ws.close();
-          return;
-        }
-        if (!data.who || (data.who !== "user" && data.who !== "bot"))
-          data.who = "bot";
-        addIfNew(data);
-        setInput("");
-      } catch {
-        addIfNew({ text: event.data, who: "bot", type: "chat" });
-        setInput("");
+  (event: MessageEvent, ws: WebSocket) => {
+    try {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "duplicate_connection") {
+        ws.close(4000);
+        return;
       }
-    },
-    [addIfNew],
-  );
+
+      if (data.type === "session_info") {
+        if (Array.isArray(data.messages)) {
+          data.messages.forEach((m: Message) => {
+            if (m.id) seenRef.current.add(m.id);
+          });
+          setMessages(data.messages);
+          const last = data.messages.at(-1);
+          if (last?.type === "course_created_done") {
+            setStatus("course_created");
+            localStorage.setItem("status", "course_created");
+            ws.close();
+          }
+        }
+        if (typeof data.reset_count === "number")
+          setResetCount(data.reset_count);
+        return;
+      }
+      if (data.type === "course_created_start") {
+        setStatus("course_creating");
+        localStorage.setItem("status", "course_creating");
+      }
+      if (data.type === "course_created_done") {
+        setStatus("course_created");
+        localStorage.setItem("status", "course_created");
+        ws.close();
+        return;
+      }
+      if (!data.who || (data.who !== "user" && data.who !== "bot"))
+        data.who = "bot";
+      addIfNew(data);
+      setInput("");
+    } catch {
+      addIfNew({ text: event.data, who: "bot", type: "chat" });
+      setInput("");
+    }
+  },[addIfNew]);
+
 
   const { connected, send, reconnect } = usePersistentWebSocket(
     buildWsUrl,

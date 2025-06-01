@@ -12,8 +12,21 @@ class SessionService:
         self.cache_service = cache_service or get_cache_service()
         self.uow = uow
 
-    async def get_session_db_by_id(self):
-        pass
+    async def get_session_id_by_ip_user_agent(self, ip, user_agent):
+        session_redis = await self.cache_service.get_session_id_by_ip_device(
+            ip, user_agent
+        )
+        if session_redis:
+            return session_redis
+
+        session_db = await self.uow.session_repo.get_by_ip_user_agent(ip, user_agent)
+        if session_db:
+            await self.cache_service.set_session_id_for_ip_device(
+                ip, user_agent, str(session_db.id)
+            )
+            return str(session_db.id)
+
+        return None
 
     async def get_or_create_session_by_ip_user_agent(self, ip, user_agent):
         session_redis = await self.cache_service.get_session_id_by_ip_device(
@@ -22,7 +35,7 @@ class SessionService:
         session_db = await self.uow.session_repo.get_by_ip_user_agent(ip, user_agent)
 
         if session_redis and session_db:
-            return session_db.id
+            return str(session_db.id)
 
         if not session_db:
             if not session_db:

@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 CHAT = "chat:{sid}"
 SESSION = "session:{sid}"
 RESET = "reset:{sid}"
+COURSE_GEN = "course_generation:{sid}"
 
 
 class RedisCacheService:
@@ -56,6 +57,10 @@ class RedisCacheService:
         await self._conn()
         return await self._r.get(f"session_map:{ip}:{dev}")
 
+    async def set_session_id_for_ip_device(self, ip: str, dev: str, sid: str):
+        await self._conn()
+        await self._r.set(f"session_map:{ip}:{dev}", sid, ex=settings.REDIS_SESSION_TTL)
+
     async def get_reset_count(self, sid: str) -> int:
         await self._conn()
         val = await self._r.get(RESET.format(sid=sid))
@@ -81,3 +86,17 @@ class RedisCacheService:
             "reset_count": await self.get_reset_count(sid),
             "messages": await self.get_messages(sid),
         }
+
+    async def set_course_generation_in_progress(self, sid: str):
+        await self._conn()
+        await self._r.set(
+            COURSE_GEN.format(sid=sid), "1", ex=settings.REDIS_SESSION_TTL
+        )
+
+    async def is_course_generation_in_progress(self, sid: str) -> bool:
+        await self._conn()
+        return await self._r.exists(COURSE_GEN.format(sid=sid)) == 1
+
+    async def clear_course_generation_in_progress(self, sid: str):
+        await self._conn()
+        await self._r.delete(COURSE_GEN.format(sid=sid))

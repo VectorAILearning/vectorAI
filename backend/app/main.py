@@ -8,6 +8,7 @@ from core.arq import get_arq_pool
 from core.broadcast import broadcaster
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.websockets import WebSocketState
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -21,9 +22,21 @@ logging.basicConfig(
 async def lifespan(app: FastAPI):
     await broadcaster.connect()
     app.state.arq_pool = await get_arq_pool()
-    yield
-    await app.state.arq_pool.close()
-    await broadcaster.disconnect()
+    if not hasattr(app.state, "ws_by_sid"):
+        app.state.ws_by_sid = {}
+    try:
+        yield
+    finally:
+        for sid, ws in list(app.state.ws_by_sid.items()):
+            if ws.application_state is WebSocketState.CONNECTED:
+                try:
+                    await ws.close(code=1001)
+                except Exception:
+                    pass
+        app.state.ws_by_sid.clear()
+
+        await app.state.arq_pool.close()
+        await broadcaster.disconnect()
 
 
 app = FastAPI(

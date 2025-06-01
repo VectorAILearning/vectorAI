@@ -3,9 +3,11 @@ import logging
 import time
 import uuid
 
+from core.config import settings
 from services.audit_service.service import AuditDialogService
 from services.learning_service.service import LearningService
 from services.message_bus import push_and_publish
+from services.redis_cache_service import RedisCacheService
 from utils.uow import uow_context
 
 log = logging.getLogger(__name__)
@@ -28,31 +30,45 @@ async def create_learning_task(_, sid: str, history: str):
     ни одно соединение не «зависнет».
     """
     log.info("pipeline start %s", sid)
-    await push_and_publish(sid, _msg("bot", "Анализируем ваши предпочтения…"))
-
-    async with uow_context() as uow:
-        user_pref = await AuditDialogService(
-            uow
-        ).create_user_preference_by_audit_history(history, sid=sid)
-
-        await push_and_publish(
-            sid,
-            _msg("system", f"Предпочтение пользователя: {user_pref.summary}", "system"),
+    redis = RedisCacheService(settings.REDIS_URL)
+    if await redis.is_course_generation_in_progress(sid):
+        log.info(
+            f"Генерация курса уже идёт для sid={sid}, повторный запуск не требуется."
         )
-        await push_and_publish(
-            sid, _msg("bot", "Собираем для вас индивидуальный курс…")
-        )
+        return
+    await redis.set_course_generation_in_progress(sid)
+    try:
+        await push_and_publish(sid, _msg("bot", "Анализируем ваши предпочтения…"))
 
-        course = await LearningService(uow).create_course_by_user_preference(
-            user_pref, sid=sid
-        )
+        async with uow_context() as uow:
+            user_pref = await AuditDialogService(
+                uow
+            ).create_user_preference_by_audit_history(history, sid=sid)
 
-        await push_and_publish(
-            sid,
-            _msg("bot", f"Курс «{course.title}» готов! Ознакомьтесь с деталями."),
-        )
-        await push_and_publish(
-            sid, _msg("system", "Курс создан", "course_created_done")
-        )
+            await push_and_publish(
+                sid,
+                _msg(
+                    "system",
+                    f"Предпочтение пользователя: {user_pref.summary}",
+                    "system",
+                ),
+            )
+            await push_and_publish(
+                sid, _msg("bot", "Собираем для вас индивидуальный курс…")
+            )
 
-        log.info("pipeline done %s", sid)
+            course = await LearningService(uow).create_course_by_user_preference(
+                user_pref, sid=sid
+            )
+
+            await push_and_publish(
+                sid,
+                _msg("bot", f"Курс «{course.title}» готов! Ознакомьтесь с деталями."),
+            )
+            await push_and_publish(
+                sid, _msg("system", "Курс создан", "course_created_done")
+            )
+
+            log.info("pipeline done %s", sid)
+    finally:
+        await redis.clear_course_generation_in_progress(sid)
