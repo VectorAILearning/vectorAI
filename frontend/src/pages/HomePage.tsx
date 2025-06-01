@@ -89,7 +89,6 @@ export default function HomePage() {
     if (typeof data.session_id === "string") {
       setSessionId(data.session_id);
       setIsSessionReady(true);
-      setWsTimestamp(Date.now());
     }
   }, []);
 
@@ -139,6 +138,7 @@ export default function HomePage() {
       setInput("");
       setTimeout(() => {
         updateSessionState(data);
+        setWsTimestamp(Date.now());
         reconnect();
         focusInput();
       }, 0);
