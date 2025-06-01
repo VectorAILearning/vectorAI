@@ -110,6 +110,7 @@ class AuditDialogService:
             )
             q.append(ask)
 
+        await self.cache_service.set_session_status(sid, "course_creating")
         await push_and_publish(
             sid,
             {

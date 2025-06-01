@@ -69,6 +69,8 @@ async def create_learning_task(_, sid: str, history: str):
                 sid, _msg("system", "Курс создан", "course_created_done")
             )
 
+            await redis.set_session_status(sid, "course_created")
+
             log.info("pipeline done %s", sid)
     finally:
         await redis.clear_course_generation_in_progress(sid)

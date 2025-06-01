@@ -12,6 +12,7 @@ CHAT = "chat:{sid}"
 SESSION = "session:{sid}"
 RESET = "reset:{sid}"
 COURSE_GEN = "course_generation:{sid}"
+SESSION_STATUS = "session_status:{sid}"
 
 
 class RedisCacheService:
@@ -82,9 +83,11 @@ class RedisCacheService:
         await self._conn()
         raw = await self._r.get(SESSION.format(sid=sid))
         return {
+            "session_id": sid,
             "session": json.loads(raw) if raw else {},
             "reset_count": await self.get_reset_count(sid),
             "messages": await self.get_messages(sid),
+            "status": await self.get_session_status(sid),
         }
 
     async def set_course_generation_in_progress(self, sid: str):
@@ -100,3 +103,12 @@ class RedisCacheService:
     async def clear_course_generation_in_progress(self, sid: str):
         await self._conn()
         await self._r.delete(COURSE_GEN.format(sid=sid))
+
+    async def set_session_status(self, sid: str, status: str):
+        await self._conn()
+        await self._r.set(SESSION_STATUS.format(sid=sid), status, ex=settings.REDIS_SESSION_TTL)
+
+    async def get_session_status(self, sid: str) -> str:
+        await self._conn()
+        status = await self._r.get(SESSION_STATUS.format(sid=sid))
+        return status or "chating"

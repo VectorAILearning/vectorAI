@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-courses_router = APIRouter()
+courses_router = APIRouter(tags=["learning"])
 
 
 @courses_router.get("/user-courses")

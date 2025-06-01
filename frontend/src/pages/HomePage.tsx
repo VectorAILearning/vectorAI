@@ -13,7 +13,9 @@ export default function HomePage() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [resetCount, setResetCount] = useState(0);
-  const [status, setStatus] = useState(() => localStorage.getItem("status") || "chating");
+  const [status, setStatus] = useState<string>("chating");
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isSessionReady, setIsSessionReady] = useState(false);
 
   const navigate = useNavigate();
 
@@ -29,10 +31,11 @@ export default function HomePage() {
     });
   }, []);
 
-  const buildWsUrl = useCallback(() => {
-    const wsHost = import.meta.env.VITE_WS_HOST;
-    return `${wsHost}/ws/audit`;
-  }, []);
+  const readyToConnect = !!sessionId && isSessionReady;
+  const wsHost = import.meta.env.VITE_WS_HOST;
+  const wsUrl = readyToConnect && sessionId
+    ? `${wsHost}/ws/audit?session_id=${encodeURIComponent(sessionId)}`
+    : "";
 
   const handleWsMessage = useCallback(
   (event: MessageEvent, ws: WebSocket) => {
@@ -53,7 +56,6 @@ export default function HomePage() {
           const last = data.messages.at(-1);
           if (last?.type === "course_created_done") {
             setStatus("course_created");
-            localStorage.setItem("status", "course_created");
             ws.close();
           }
         }
@@ -63,11 +65,9 @@ export default function HomePage() {
       }
       if (data.type === "course_created_start") {
         setStatus("course_creating");
-        localStorage.setItem("status", "course_creating");
       }
       if (data.type === "course_created_done") {
         setStatus("course_created");
-        localStorage.setItem("status", "course_created");
         ws.close();
         return;
       }
@@ -81,14 +81,31 @@ export default function HomePage() {
     }
   },[addIfNew]);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_HOST}/api/v1/audit/session-info`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setMessages(Array.isArray(data.messages) ? data.messages : []);
+        setResetCount(typeof data.reset_count === "number" ? data.reset_count : 0);
+        setStatus(typeof data.status === "string" ? data.status : "chating");
+        if (typeof data.session_id === "string") {
+          setSessionId(data.session_id);
+          setIsSessionReady(true);
+        }
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { connected, send, reconnect } = usePersistentWebSocket(
-    buildWsUrl,
+    wsUrl,
     handleWsMessage,
     {
-      shouldReconnect: status !== "course_created",
+      shouldReconnect: status !== "course_created" && readyToConnect,
       reconnectDelay: 2000,
-    },
+    }
   );
 
   useEffect(() => {
@@ -97,15 +114,34 @@ export default function HomePage() {
   }, [messages]);
 
   const handleReset = async () => {
-    await fetch(`${import.meta.env.VITE_API_HOST}/api/v1/audit/reset-chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-    setMessages([]);
-    setInput("");
-    setStatus("chating");
-    localStorage.setItem("status", "chating");
-    reconnect();
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_HOST}/api/v1/audit/reset-chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error("Ошибка сброса чата");
+      const data = await res.json();
+      setMessages(Array.isArray(data.messages) ? data.messages : []);
+      setResetCount(typeof data.reset_count === "number" ? data.reset_count : 0);
+      setStatus(typeof data.status === "string" ? data.status : "chating");
+      if (typeof data.session_id === "string") {
+        setSessionId(data.session_id);
+        setIsSessionReady(true);
+      }
+      setInput("");
+      reconnect();
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
+    } catch {
+      setMessages([]);
+      setInput("");
+      setStatus("chating");
+      reconnect();
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -141,11 +177,13 @@ export default function HomePage() {
   }, [connected, status]);
 
   useEffect(() => {
-    localStorage.setItem("status", status);
-  }, [status]);
+    if (status === "chating" && messages.length === 0) {
+      inputRef.current?.focus();
+    }
+  }, [status, messages]);
 
   const placeholder =
-    !connected && status === "chating" && messages.length
+    !connected && status === "chating"
       ? "Восстанавливаем соединение..."
       : status === "course_created"
         ? "Курс создан! Получите его ниже."

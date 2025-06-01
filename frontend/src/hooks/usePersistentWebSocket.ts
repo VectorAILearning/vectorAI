@@ -6,7 +6,7 @@ interface Options {
 }
 
 export function usePersistentWebSocket(
-  buildUrl: () => string,
+  url: string,
   onMessage: (e: MessageEvent, ws: WebSocket) => void,
   opts: Options = {}
 ) {
@@ -36,7 +36,10 @@ export function usePersistentWebSocket(
       } catch {}
     }
 
-    const url = buildUrl();
+    if (!url) {
+      setConnected(false);
+      return;
+    }
 
     if (url === lastUrlRef.current && hasActiveSocket()) {
       return;
@@ -76,7 +79,7 @@ export function usePersistentWebSocket(
         reconnectTimer.current = window.setTimeout(connect, reconnectDelay);
       }
     };
-  }, [buildUrl, onMessage, reconnectDelay]);
+  }, [url, onMessage, reconnectDelay]);
 
   useEffect(() => {
     connect();
@@ -92,7 +95,7 @@ export function usePersistentWebSocket(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [url]);
 
   const reconnect = useCallback(() => {
     if (shouldReconnectRef.current) {
