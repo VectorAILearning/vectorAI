@@ -30,11 +30,13 @@ class LearningRepository:
         await self.db.refresh(course)
         return course
 
-    async def get_course_by_session_id(self, session_id: str) -> CourseModel | None:
+    async def get_courses_by_session_id(
+        self, session_id: str
+    ) -> list[CourseModel | None]:
         stmt = select(CourseModel).where(CourseModel.session_id == session_id)
         result = await self.db.execute(stmt)
-        course = result.scalar_one_or_none()
-        return course
+        courses = result.scalars()
+        return list(courses)
 
     async def create_course_by_json(
         self,

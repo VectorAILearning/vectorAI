@@ -61,6 +61,8 @@ async def create_learning_task(_, sid: str, history: str):
                 user_pref, sid=sid
             )
 
+            await redis.add_generated_course(sid, course.model_dump())
+
             await push_and_publish(
                 sid,
                 _msg("bot", f"Курс «{course.title}» готов! Ознакомьтесь с деталями."),

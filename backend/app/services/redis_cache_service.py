@@ -13,6 +13,7 @@ SESSION = "session:{sid}"
 RESET = "reset:{sid}"
 COURSE_GEN = "course_generation:{sid}"
 SESSION_STATUS = "session_status:{sid}"
+GENERATED_COURSES = "generated_courses:{sid}"
 
 
 class RedisCacheService:
@@ -82,12 +83,14 @@ class RedisCacheService:
     async def get_session_info(self, sid: str):
         await self._conn()
         raw = await self._r.get(SESSION.format(sid=sid))
+        generated_courses = await self.get_generated_courses(sid)
         return {
             "session_id": sid,
             "session": json.loads(raw) if raw else {},
             "reset_count": await self.get_reset_count(sid),
             "messages": await self.get_messages(sid),
             "status": await self.get_session_status(sid),
+            "generated_courses": generated_courses,
         }
 
     async def set_course_generation_in_progress(self, sid: str):
@@ -114,3 +117,16 @@ class RedisCacheService:
         await self._conn()
         status = await self._r.get(SESSION_STATUS.format(sid=sid))
         return status or "chating"
+
+    async def add_generated_course(self, sid: str, course_data: dict):
+        await self._conn()
+        await self._r.lpush(
+            GENERATED_COURSES.format(sid=sid),
+            json.dumps(course_data)
+        )
+        await self._r.expire(GENERATED_COURSES.format(sid=sid), settings.REDIS_SESSION_TTL)
+
+    async def get_generated_courses(self, sid: str) -> list[dict]:
+        await self._conn()
+        raw_list = await self._r.lrange(GENERATED_COURSES.format(sid=sid), 0, -1)
+        return [json.loads(x) for x in raw_list]

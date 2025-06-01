@@ -129,16 +129,16 @@ export default function HomePage() {
         setIsSessionReady(true);
       }
       setInput("");
-      reconnect();
       setTimeout(() => {
+        reconnect();
         inputRef.current?.focus();
       }, 0);
     } catch {
       setMessages([]);
       setInput("");
       setStatus("chating");
-      reconnect();
       setTimeout(() => {
+        reconnect();
         inputRef.current?.focus();
       }, 0);
     }
@@ -196,6 +196,8 @@ export default function HomePage() {
   const maxResets = 3;
   const resetsLeft = maxResets - resetCount;
 
+  const checkSubscription = import.meta.env.VITE_CHECK_SUBSCRIPTION === 'true';
+
   return (
     <div className="min-h-screen flex flex-col items-center bg-base-100">
       <div className="w-full max-w-md flex flex-col gap-4 flex-1 pt-8">
@@ -248,7 +250,11 @@ export default function HomePage() {
 
         <div className="flex gap-2 justify-center">
           {messages.length > 0 && (
-            <button className="btn btn-secondary mt-4" onClick={handleReset} disabled={status !== "chating" || resetsLeft <= 0}>
+            <button
+              className="btn btn-secondary mt-4"
+              onClick={handleReset}
+              disabled={checkSubscription && (status !== "chating" || resetsLeft <= 0)}
+            >
               Сбросить чат
             </button>
           )}

@@ -19,7 +19,7 @@ class CourseModel(Base):
         UUID(as_uuid=True), ForeignKey("sessions.id"), nullable=True
     )
 
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(String(1000), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     estimated_time_hours: Mapped[float] = mapped_column(Float, nullable=False)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -49,7 +49,7 @@ class ModuleModel(Base):
         UUID(as_uuid=True), ForeignKey("courses.id"), nullable=False
     )
 
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(String(1000), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     estimated_time_hours: Mapped[float] = mapped_column(Float, nullable=False)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -70,7 +70,7 @@ class LessonModel(Base):
         UUID(as_uuid=True), ForeignKey("modules.id"), nullable=False
     )
 
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(String(1000), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     estimated_time_hours: Mapped[float] = mapped_column(Float, nullable=False)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)

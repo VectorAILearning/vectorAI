@@ -8,6 +8,7 @@ from services.audit_service.service import AuditDialogService
 from services.session_service.service import SessionService
 from starlette.websockets import WebSocketState
 from utils.uow import uow_context
+from core.config import settings
 
 router = APIRouter()
 
@@ -58,8 +59,10 @@ async def audit_websocket(ws: WebSocket, session_id: str = Query(...)):
         if ws.app.state.ws_by_sid.get(session_id) is not ws:
             return
         async with uow_context() as uow:
-            course_exist = await uow.learning_repo.get_course_by_session_id(session_id)
-            if course_exist:
+            # TODO: получать пользователя, если у пользователя нет подписки, или пользователь
+            # не авторизован и при этом уже создал курс, то закрываем соединение
+            course_exist = await uow.learning_repo.get_courses_by_session_id(session_id)
+            if settings.CHECK_SUBSCRIPTION and course_exist:
                 await ws.close(code=1000)
                 return
 

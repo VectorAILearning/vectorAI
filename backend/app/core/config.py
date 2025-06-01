@@ -6,6 +6,8 @@ from sqlalchemy import URL
 
 
 class Settings(BaseSettings):
+    CHECK_SUBSCRIPTION: bool = False
+
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
