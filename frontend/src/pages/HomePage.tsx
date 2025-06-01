@@ -110,12 +110,19 @@ export default function HomePage() {
     inputRef.current?.focus();
   }, []);
 
+  const handleWsClose = useCallback((e: CloseEvent) => {
+    if (e.code === 4001) {
+      setStatus("no_subscription");
+    }
+  }, []);
+
   const { connected, send, reconnect } = usePersistentWebSocket(
     wsUrl,
     handleWsMessage,
     {
-      shouldReconnect: status !== "course_created" && readyToConnect,
+      shouldReconnect: status !== "course_created" && status !== "no_subscription" && readyToConnect,
       reconnectDelay: 2000,
+      onClose: handleWsClose,
     }
   );
 
@@ -186,15 +193,17 @@ export default function HomePage() {
   }, [status, messages]);
 
   const placeholder =
-    !connected && status === "chating"
-      ? "Восстанавливаем соединение..."
-      : status === "course_created"
-        ? "Курс создан! Получите его ниже."
-        : status !== "chating" && messages.length
-          ? "Ждём ответа бота..."
-          : messages.length
-            ? "Введите ответ..."
-            : "Чему бы вы хотели научиться?";
+    status === "no_subscription"
+      ? "Пожалуйста, авторизуйтесь или купите подписку, чтобы продолжить."
+      : !connected && status === "chating"
+        ? "Восстанавливаем соединение..."
+        : status === "course_created"
+          ? "Курс создан! Получите его ниже."
+          : status !== "chating" && messages.length
+            ? "Ждём ответа бота..."
+            : messages.length
+              ? "Введите ответ..."
+              : "Чему бы вы хотели научиться?";
 
   const maxResets = 3;
   const resetsLeft = maxResets - resetCount;

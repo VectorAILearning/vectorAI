@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 interface Options {
   shouldReconnect?: boolean;
   reconnectDelay?: number;
+  onClose?: (e: CloseEvent) => void;
 }
 
 export function usePersistentWebSocket(
@@ -10,7 +11,7 @@ export function usePersistentWebSocket(
   onMessage: (e: MessageEvent, ws: WebSocket) => void,
   opts: Options = {}
 ) {
-  const { shouldReconnect = true, reconnectDelay = 2000 } = opts;
+  const { shouldReconnect = true, reconnectDelay = 2000, onClose } = opts;
 
   const shouldReconnectRef = useRef(shouldReconnect);
   useEffect(() => {
@@ -72,14 +73,17 @@ export function usePersistentWebSocket(
       if (wsRef.current === ws) {
         wsRef.current = null;
       }
-      if (e.code === 4000) {
+      if (typeof onClose === 'function') {
+        onClose(e);
+      }
+      if (e.code === 4000 || e.code === 4001) {
         return;
       }
       if (shouldReconnectRef.current) {
         reconnectTimer.current = window.setTimeout(connect, reconnectDelay);
       }
     };
-  }, [url, onMessage, reconnectDelay]);
+  }, [url, onMessage, reconnectDelay, onClose]);
 
   useEffect(() => {
     connect();

@@ -63,7 +63,8 @@ async def audit_websocket(ws: WebSocket, session_id: str = Query(...)):
             # не авторизован и при этом уже создал курс, то закрываем соединение
             course_exist = await uow.learning_repo.get_courses_by_session_id(session_id)
             if settings.CHECK_SUBSCRIPTION and course_exist:
-                await ws.close(code=1000)
+                # Закрываем соединение с кодом 4001, если нет подписки, но курс уже создан
+                await ws.close(code=4001)
                 return
 
         async with asyncio.TaskGroup() as tg:
