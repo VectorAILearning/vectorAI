@@ -61,7 +61,15 @@ async def create_learning_task(_, sid: str, history: str):
                 user_pref, sid=sid
             )
 
-            await redis.add_generated_course(sid, course.model_dump())
+            if hasattr(course, "model_dump"):
+                course_data = course.model_dump()
+            elif hasattr(course, "dict"):
+                course_data = course.dict()
+            elif hasattr(course, "__dict__"):
+                course_data = course.__dict__
+            else:
+                raise TypeError("Unsupported course object for serialization")
+            await redis.add_generated_course(sid, course_data)
 
             await push_and_publish(
                 sid,

@@ -199,7 +199,7 @@ export default function HomePage() {
   const maxResets = 3;
   const resetsLeft = maxResets - resetCount;
 
-  const checkSubscription = import.meta.env.VITE_CHECK_SUBSCRIPTION === 'true';
+  const checkSubscription = import.meta.env.VITE_CHECK_SUBSCRIPTION !== 'false';
 
   useEffect(() => {
     (async () => {
