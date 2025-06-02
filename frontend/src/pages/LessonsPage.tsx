@@ -6,7 +6,7 @@ export default function LessonsPage() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isCourseMenuOpen, setIsCourseMenuOpen] = useState(false);
   const [courses, setCourses] = useState<any[]>([]);
-  const [statusCode, setStatusCode] = useState<string>("");
+  const [statusCode, setStatusCode] = useState<number>(0);
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
   const [selectedLessons, setSelectedLessons] = useState<any | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -230,9 +230,6 @@ export default function LessonsPage() {
             </>
           )}
         </div>
-        <button className="btn btn-neutral btn-lg fixed bottom-4 right-4 z-50">
-          Чат с поддержкой
-        </button>
       </main>
     </div>
   );

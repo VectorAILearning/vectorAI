@@ -34,17 +34,6 @@ export default function HomePage() {
       });
   }, []);
 
-  // console.log(curses)
-
-  // const getCourseId = () => {
-  //    const apiHost = import.meta.env.VITE_API_HOST
-  //     fetch(`${apiHost}/api/v1/course/${courseId}`)
-  //     .then((res) => res.json())
-  //     .then((data) => {
-  //       setSelectedCourse(data)
-  //     });
-  //   }
-
   const addIfNew = useCallback((msg: Message) => {
     setMessages((prev) => {
       if (msg.id && prev.some((m) => m.id === msg.id)) return prev;
