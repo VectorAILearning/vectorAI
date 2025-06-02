@@ -5,7 +5,7 @@ from models import CourseModel, LessonModel, ModuleModel
 from schemas import CourseIn, CourseUpdate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 
 class LearningRepository:
@@ -93,7 +93,7 @@ class LearningRepository:
             .where(LessonModel.id == lesson_id)
             .options(
                 selectinload(LessonModel.module).selectinload(ModuleModel.course),
-                selectinload(LessonModel.contents)
+                selectinload(LessonModel.contents),
             )
         )
         result = await self.db.execute(stmt)

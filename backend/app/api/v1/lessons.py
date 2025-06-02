@@ -1,9 +1,11 @@
 import uuid
+
 from fastapi import APIRouter, Depends, HTTPException
 from services.learning_service.service import LearningService
 from utils.uow import UnitOfWork, get_uow
 
 lessons_router = APIRouter(tags=["lessons"])
+
 
 @lessons_router.post("/lesson/{lesson_id}/generate-content")
 async def generate_lesson_content(
@@ -16,7 +18,9 @@ async def generate_lesson_content(
         raise HTTPException(status_code=404, detail="Урок не найден")
 
     if hasattr(lesson, "contents") and lesson.contents and len(lesson.contents) > 0:
-        raise HTTPException(status_code=400, detail="Контент для этого урока уже сгенерирован")
+        raise HTTPException(
+            status_code=400, detail="Контент для этого урока уже сгенерирован"
+        )
 
     course = lesson.module.course if lesson.module else None
     user_preferences = ""
@@ -25,6 +29,7 @@ async def generate_lesson_content(
 
     content = await service.generate_and_save_lesson_content(lesson, user_preferences)
     return {"lesson_id": str(lesson_id), "content": content}
+
 
 @lessons_router.post("/lesson/{lesson_id}/regenerate-content")
 async def regenerate_lesson_content(
@@ -47,4 +52,4 @@ async def regenerate_lesson_content(
         user_preferences = course.preference.summary
 
     content = await service.generate_and_save_lesson_content(lesson, user_preferences)
-    return {"lesson_id": str(lesson_id), "content": content} 
+    return {"lesson_id": str(lesson_id), "content": content}

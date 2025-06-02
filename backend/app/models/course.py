@@ -1,7 +1,7 @@
 import uuid
 
 from core.database import Base
-from sqlalchemy import Boolean, Float, ForeignKey, String, Text, Integer
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

@@ -2,13 +2,12 @@ import asyncio
 import os
 from logging.config import fileConfig
 
+import alembic_postgresql_enum
 from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-import alembic_postgresql_enum
-
 
 dotenv_path = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"

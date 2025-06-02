@@ -5,6 +5,7 @@ from agents.base_agent import BaseAgent
 from core.config import openai_settings
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+
 from .prompts import SYSTEM_PROMPT
 
 
