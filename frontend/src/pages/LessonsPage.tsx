@@ -117,7 +117,7 @@ export default function LessonsPage() {
               <div className="absolute top-full left-0 mt-2 min-w-[600px] w-fit bg-base-300 rounded-2xl shadow-lg z-50">
                 <ul className="menu bg-base-300 p-2 text-xl">
                   {courses.map((course, idx) => (
-                    <Link key={course.id} to={`/courses/${course.id}`}>
+                    <Link key={course.id} to={`/course/${course.id}`}>
                       <li>
                         <button
                           className="w-full text-left hover:bg-base-300 rounded p-2"
@@ -196,7 +196,7 @@ export default function LessonsPage() {
                   {module.lessons?.map((lesson: any, lidx: number) => (
                     <li key={lidx}>
                       <Link
-                        to={`/courses/${courseId}/lesson/${lesson.id}`}
+                        to={`/course/${courseId}/lesson/${lesson.id}`}
                         className="text-base"
                         onClick={() => getLessonId(lesson.id)}
                       >
