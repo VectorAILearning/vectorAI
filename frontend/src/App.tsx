@@ -16,9 +16,9 @@ export default function App() {
         <Route path="/" element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/auth" element={<AuthPage />} />
-          <Route path="/courses/:courseId" element={<CoursesPage />} />
+          <Route path="/course/:courseId" element={<CoursesPage />} />
           <Route
-            path="/courses/:courseId/lesson/:lessonId"
+            path="/course/:courseId/lesson/:lessonId"
             element={<LessonsPage />}
           />
           <Route path="/auth/recover" element={<ForgetPasswordPage />} />

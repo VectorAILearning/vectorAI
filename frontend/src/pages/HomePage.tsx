@@ -325,7 +325,7 @@ export default function HomePage() {
           {status === "course_created" && (
             <button
               className="btn btn-primary mt-4"
-              onClick={() => navigate(`/courses/${curses[0].id}`)}
+              onClick={() => navigate(`/course/${curses[0].id}`)}
             >
               Получить курс
             </button>
