@@ -27,6 +27,17 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
 
+    MAIL_USERNAME: str
+    MAIL_PASSWORD: str
+    MAIL_FROM: str
+    MAIL_PORT: int
+    MAIL_SERVER: str
+    MAIL_STARTTLS: bool
+    MAIL_SSL_TLS: bool
+
+    DOMAIN: str = "http://127.0.0.1:8000"
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES: int = 60
+
     @field_validator("REDIS_URL", mode="before")
     def assemble_redis_url(cls, v, values):
         if v:

@@ -17,6 +17,8 @@ class UserModel(Base):
     username: Mapped[str] = mapped_column(String(128), nullable=False)
     password: Mapped[str] = mapped_column(String(256), nullable=False)
     email: Mapped[str] = mapped_column(String(256), nullable=False)
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     courses: Mapped[list["CourseModel"]] = relationship(back_populates="user")
     preferences: Mapped[list["PreferenceModel"]] = relationship(back_populates="user")
