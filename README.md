@@ -84,9 +84,7 @@ npm run dev
 docker compose -f docker-compose-dev.yml up --build
 ```
 
-* **Фронтенд:** `http://localhost:5173`
-* **Бэкенд:** `http://localhost:8000`
-* **Nginx** `http://localhost`
+* **В браузере:** `http://localhost:5173`
 
 ## CI/CD
 
