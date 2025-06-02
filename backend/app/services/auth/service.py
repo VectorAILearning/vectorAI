@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from models import RefreshTokenModel, UserModel
 from pydantic import EmailStr
 from schemas import Token
+from utils.email_sender import send_verification_email
 from utils.uow import UnitOfWork
 
 
@@ -49,7 +50,15 @@ class AuthService:
     ) -> UserModel | None:
         user = await self.uow.auth_repo.get_by_email(username)
         if not user or not self.verify_password(password, user.password):
-            return None
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Неверный email или пароль",
+            )
+
+        if not user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Email не подтвержден"
+            )
         return user
 
     async def register_user(self, email: EmailStr, password: str) -> UserModel | None:
@@ -61,6 +70,8 @@ class AuthService:
         self.uow.session.add(user)
         await self.uow.session.flush()
         await self.uow.session.refresh(user)
+        verification_token = self.create_email_verification_token(user.email)
+        await send_verification_email(user.email, verification_token)
         return user
 
     @staticmethod
@@ -83,6 +94,63 @@ class AuthService:
         await self.uow.session.flush()
         await self.uow.session.refresh(refresh_token_db)
         return refresh_token_db
+
+    @staticmethod
+    def create_email_verification_token(email: EmailStr) -> str:
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES
+        )
+        to_encode = {
+            "sub": email,
+            "exp": expire.timestamp(),
+            "type": "email_verification",
+        }
+        encoded_jwt = jwt.encode(
+            to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        )
+        return encoded_jwt
+
+    async def verify_user_email(self, token: str) -> bool:
+        try:
+            payload = jwt.decode(
+                token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+            )
+            if payload.get("type") != "email_verification":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Неверный тип токена",
+                )
+            email: EmailStr = payload.get("sub")
+            if not email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Токен не содержит email",
+                )
+
+            user = await self.uow.auth_repo.get_by_email(email)
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Пользователь не найден",
+                )
+            if user.is_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email уже подтвержден",
+                )
+
+            user.is_verified = True
+            self.uow.session.add(user)
+            await self.uow.session.flush()
+            return True
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Токен просрочен"
+            )
+        except jwt.InvalidTokenError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный токен"
+            )
 
     async def refresh_access_token(self, refresh_token_str: str) -> Token:
         rt_from_db = await self.uow.refresh_token_repo.get_by_token(refresh_token_str)
