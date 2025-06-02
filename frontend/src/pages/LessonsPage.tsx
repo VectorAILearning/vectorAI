@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 export default function LessonsPage() {
@@ -57,7 +57,7 @@ export default function LessonsPage() {
 
   return (
     <div className="flex h-screen bg-base-100 text-lg">
-      <header className="fixed top-0 left-0 right-0 h-16 bg-base-300 flex items-center px-4 z-50">
+      <header className="fixed top-0 left-0 right-0 h-17 bg-base-300 flex items-center px-4 z-50">
         <div className="flex items-center space-x-4 w-1/3">
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -211,15 +211,10 @@ export default function LessonsPage() {
         </aside>
       )}
       <main
-        className="flex-1 mt-16 bg-base-100 text-base-content overflow-y-auto min-h-0 flex justify-center"
-        style={{ minHeight: 0 }}
+        className="flex-1 bg-base-100 text-base-content flex justify-center overflow-y-auto"
+        style={{ maxHeight: "90vh" }}
       >
         <div className="max-w-3xl w-full p-8">
-          {statusCode === 422 ? (
-            <>
-              <h1 className="text-3xl font-bold mb-4 text-center">Not Found</h1>
-            </>
-          ) : (
             <>
               <h1 className="text-3xl font-bold mb-4 text-center">
                 {selectedLessons?.title || selectedLessons?.detail}
@@ -227,8 +222,72 @@ export default function LessonsPage() {
               <p className="mb-8 text-base text-base-content/80 text-center">
                 {selectedLessons?.description}
               </p>
+              {selectedLessons?.contents && selectedLessons.contents.length > 0 && (
+                <div className="mt-8">
+                  <h2 className="text-2xl font-semibold mb-4 text-center">Контент урока</h2>
+                  <ul className="space-y-4">
+                    {selectedLessons.contents.map((block: any, idx: number) => (
+                      <li key={block.id || idx} className="p-4 rounded bg-base-200">
+                        <div className="font-bold mb-1">
+                          {block.position}. {block.type.toUpperCase()}
+                        </div>
+                        {block.type === "text" && (
+                          <div>{block.content.text}</div>
+                        )}
+                        {block.type === "video" && (
+                          <div>
+                            <div className="font-semibold">{block.content.title}</div>
+                            <div>{block.content.description}</div>
+                            {block.content.url && (
+                              <a
+                                href={block.content.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary underline"
+                              >
+                                Смотреть видео
+                              </a>
+                            )}
+                          </div>
+                        )}
+                        {block.type === "dialog" && (
+                          <div>
+                            {block.content.dialog?.map((rep: any, i: number) => (
+                              <div key={i}>
+                                <span className="font-semibold">{rep.role}:</span> {rep.text}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {block.type === "open_answer" && (
+                          <div>
+                            <span className="font-semibold">Задание:</span> {block.content.question}
+                          </div>
+                        )}
+                        {block.type === "reflection" && (
+                          <div>
+                            <span className="font-semibold">Рефлексия:</span> {block.content.prompt}
+                          </div>
+                        )}
+                        {block.type === "test" && (
+                          <div>
+                            <div className="font-semibold">{block.content.question}</div>
+                            <ul className="list-disc ml-6">
+                              {block.content.options?.map((opt: string, i: number) => (
+                                <li key={i}>{opt}</li>
+                              ))}
+                            </ul>
+                            <div className="text-xs text-base-content/60 mt-1">
+                              <span className="font-semibold">Ответ:</span> {block.content.answer}
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </>
-          )}
         </div>
       </main>
     </div>

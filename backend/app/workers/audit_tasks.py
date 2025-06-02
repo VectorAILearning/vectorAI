@@ -69,6 +69,23 @@ async def create_learning_task(_, sid: str, history: str):
             }
             await redis.add_generated_course(sid, course_data)
 
+            # Генерируем контент для первого урока первого модуля
+            first_lesson = None
+            if course.modules and len(course.modules) > 0:
+                first_module = course.modules[0]
+                if first_module.lessons and len(first_module.lessons) > 0:
+                    first_lesson = first_module.lessons[0]
+            if first_lesson:
+                await push_and_publish(
+                    sid, _msg("bot", f"Генерируем контент для первого урока курса…")
+                )
+                await LearningService(uow).generate_and_save_lesson_content(
+                    first_lesson, user_pref.summary
+                )
+                await push_and_publish(
+                    sid, _msg("bot", f"Контент для первого урока сгенерирован!")
+                )
+
             await push_and_publish(
                 sid,
                 _msg("bot", f"Курс «{course.title}» готов! Ознакомьтесь с деталями."),
