@@ -9,7 +9,7 @@ type Message = {
     type?: string;
 };
 
-export default function Chat() {
+ const  Chat = () => {
     const [input, setInput] = useState("");
     const [messages, setMessages] = useState<Message[]>([]);
     const [resetCount, setResetCount] = useState(0);
@@ -295,3 +295,5 @@ export default function Chat() {
         </div>
     );
 }
+
+export default Chat;
