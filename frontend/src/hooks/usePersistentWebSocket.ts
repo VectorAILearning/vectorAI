@@ -9,7 +9,7 @@ interface Options {
 export function usePersistentWebSocket(
   url: string,
   onMessage: (e: MessageEvent, ws: WebSocket) => void,
-  opts: Options = {}
+  opts: Options = {},
 ) {
   const { shouldReconnect = true, reconnectDelay = 2000, onClose } = opts;
 
@@ -73,7 +73,7 @@ export function usePersistentWebSocket(
       if (wsRef.current === ws) {
         wsRef.current = null;
       }
-      if (typeof onClose === 'function') {
+      if (typeof onClose === "function") {
         onClose(e);
       }
       if (e.code === 4000 || e.code === 4001) {
@@ -107,11 +107,14 @@ export function usePersistentWebSocket(
     }
   }, [connect]);
 
-  const send = useCallback((data: string | Blob | ArrayBuffer | ArrayBufferView) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(data);
-    }
-  }, []);
+  const send = useCallback(
+    (data: string | Blob | ArrayBuffer | ArrayBufferView) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(data);
+      }
+    },
+    [],
+  );
 
   return { ws: wsRef.current, connected, send, reconnect };
 }

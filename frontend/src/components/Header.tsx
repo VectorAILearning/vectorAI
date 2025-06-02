@@ -48,11 +48,11 @@ export default function Header() {
           />
         </label>
         {location == "/" && (
-            <div className="flex gap-4">
-              <button className="btn btn-primary" onClick={handleLogin}>
-                Вход
-              </button>
-            </div>
+          <div className="flex gap-4">
+            <button className="btn btn-primary" onClick={handleLogin}>
+              Вход
+            </button>
+          </div>
         )}
         {location === "/courses" ||
           (location === "/profile" && (

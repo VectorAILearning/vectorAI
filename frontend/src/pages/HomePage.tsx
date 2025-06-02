@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { data, useNavigate } from "react-router-dom";
 import { usePersistentWebSocket } from "../hooks/usePersistentWebSocket";
 
 type Message = {
@@ -17,70 +17,88 @@ export default function HomePage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [wsTimestamp, setWsTimestamp] = useState(Date.now());
-
+  const [curses, setCurses] = useState([]);
   const navigate = useNavigate();
-
   const chatRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const seenRef = useRef<Set<string>>(new Set());
 
+  useEffect(() => {
+    const apiHost = import.meta.env.VITE_API_HOST;
+
+    fetch(`${apiHost}/api/v1/user-courses`)
+      .then((res) => res.json())
+      .then((data) => {
+        setCurses(data);
+      });
+  }, [curses]);
+
   const addIfNew = useCallback((msg: Message) => {
     setMessages((prev) => {
-      if (msg.id && prev.some(m => m.id === msg.id)) return prev;
-      if (!msg.id && prev.length && prev[prev.length - 1].text === msg.text && prev[prev.length - 1].type === msg.type) return prev;
+      if (msg.id && prev.some((m) => m.id === msg.id)) return prev;
+      if (
+        !msg.id &&
+        prev.length &&
+        prev[prev.length - 1].text === msg.text &&
+        prev[prev.length - 1].type === msg.type
+      )
+        return prev;
       return [...prev, msg];
     });
   }, []);
 
   const readyToConnect = !!sessionId && isSessionReady;
   const wsHost = import.meta.env.VITE_WS_HOST;
-  const wsUrl = readyToConnect && sessionId
-    ? `${wsHost}/ws/audit?session_id=${encodeURIComponent(sessionId)}&t=${wsTimestamp}`
-    : "";
+  const wsUrl =
+    readyToConnect && sessionId
+      ? `${wsHost}/ws/audit?session_id=${encodeURIComponent(sessionId)}&t=${wsTimestamp}`
+      : "";
 
   const handleWsMessage = useCallback(
-  (event: MessageEvent, ws: WebSocket) => {
-    try {
-      const data = JSON.parse(event.data);
+    (event: MessageEvent, ws: WebSocket) => {
+      try {
+        const data = JSON.parse(event.data);
 
-      if (data.type === "duplicate_connection") {
-        ws.close(4000);
-        return;
-      }
-
-      if (data.type === "session_info") {
-        if (Array.isArray(data.messages)) {
-          data.messages.forEach((m: Message) => {
-            if (m.id) seenRef.current.add(m.id);
-          });
-          setMessages(data.messages);
-          const last = data.messages.at(-1);
-          if (last?.type === "course_created_done") {
-            setStatus("course_created");
-            ws.close();
-          }
+        if (data.type === "duplicate_connection") {
+          ws.close(4000);
+          return;
         }
-        if (typeof data.reset_count === "number")
-          setResetCount(data.reset_count);
-        return;
+
+        if (data.type === "session_info") {
+          if (Array.isArray(data.messages)) {
+            data.messages.forEach((m: Message) => {
+              if (m.id) seenRef.current.add(m.id);
+            });
+            setMessages(data.messages);
+            const last = data.messages.at(-1);
+            if (last?.type === "course_created_done") {
+              setStatus("course_created");
+              ws.close();
+            }
+          }
+          if (typeof data.reset_count === "number")
+            setResetCount(data.reset_count);
+          return;
+        }
+        if (data.type === "course_created_start") {
+          setStatus("course_creating");
+        }
+        if (data.type === "course_created_done") {
+          setStatus("course_created");
+          ws.close();
+          return;
+        }
+        if (!data.who || (data.who !== "user" && data.who !== "bot"))
+          data.who = "bot";
+        addIfNew(data);
+        setInput("");
+      } catch {
+        addIfNew({ text: event.data, who: "bot", type: "chat" });
+        setInput("");
       }
-      if (data.type === "course_created_start") {
-        setStatus("course_creating");
-      }
-      if (data.type === "course_created_done") {
-        setStatus("course_created");
-        ws.close();
-        return;
-      }
-      if (!data.who || (data.who !== "user" && data.who !== "bot"))
-        data.who = "bot";
-      addIfNew(data);
-      setInput("");
-    } catch {
-      addIfNew({ text: event.data, who: "bot", type: "chat" });
-      setInput("");
-    }
-  },[addIfNew]);
+    },
+    [addIfNew],
+  );
 
   const updateSessionState = useCallback((data: any) => {
     setMessages(Array.isArray(data.messages) ? data.messages : []);
@@ -120,10 +138,13 @@ export default function HomePage() {
     wsUrl,
     handleWsMessage,
     {
-      shouldReconnect: status !== "course_created" && status !== "no_subscription" && readyToConnect,
+      shouldReconnect:
+        status !== "course_created" &&
+        status !== "no_subscription" &&
+        readyToConnect,
       reconnectDelay: 2000,
       onClose: handleWsClose,
-    }
+    },
   );
 
   useEffect(() => {
@@ -133,10 +154,13 @@ export default function HomePage() {
 
   const handleReset = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_HOST}/api/v1/audit/reset-chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
+      const res = await fetch(
+        `${import.meta.env.VITE_API_HOST}/api/v1/audit/reset-chat`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        },
+      );
       if (!res.ok) throw new Error("Ошибка сброса чата");
       const data = await res.json();
 
@@ -171,7 +195,7 @@ export default function HomePage() {
     !messages.some((m) => m.type === "audit_done") &&
     (messages.length === 0 ||
       (lastMsg?.who === "bot" && lastMsg.type === "chat")) &&
-    status === "chating"
+    status === "chating";
 
   useEffect(() => {
     const last = messages.at(-1);
@@ -208,12 +232,14 @@ export default function HomePage() {
   const maxResets = 3;
   const resetsLeft = maxResets - resetCount;
 
-  const checkSubscription = import.meta.env.VITE_CHECK_SUBSCRIPTION !== 'false';
+  const checkSubscription = import.meta.env.VITE_CHECK_SUBSCRIPTION !== "false";
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_HOST}/api/v1/audit/session-info`);
+        const res = await fetch(
+          `${import.meta.env.VITE_API_HOST}/api/v1/audit/session-info`,
+        );
         if (!res.ok) return;
         const data = await res.json();
         updateSessionState(data);
@@ -277,7 +303,9 @@ export default function HomePage() {
             <button
               className="btn btn-secondary mt-4"
               onClick={handleReset}
-              disabled={checkSubscription && (status !== "chating" || resetsLeft <= 0)}
+              disabled={
+                checkSubscription && (status !== "chating" || resetsLeft <= 0)
+              }
             >
               Сбросить чат
             </button>
@@ -285,7 +313,7 @@ export default function HomePage() {
           {status === "course_created" && (
             <button
               className="btn btn-primary mt-4"
-              onClick={() => navigate("/courses")}
+              onClick={() => navigate(`/course/${curses[0].id}`)}
             >
               Получить курс
             </button>

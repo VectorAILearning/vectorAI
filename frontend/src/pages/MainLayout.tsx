@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import Header from "../components/Header.tsx";
+import ChatButton from "../components/ChatButton.tsx";
 
 const MainLayout = () => {
   return (
@@ -10,6 +11,9 @@ const MainLayout = () => {
         </div>
         <div className="pt-17">
           <Outlet />
+        </div>
+        <div>
+          <ChatButton />
         </div>
       </div>
     </>
