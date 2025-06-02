@@ -1,7 +1,7 @@
 import uuid
 
 from core.database import Base
-from sqlalchemy import Boolean, Float, ForeignKey, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, String, Text, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,6 +48,7 @@ class ModuleModel(Base):
     course_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("courses.id"), nullable=False
     )
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     title: Mapped[str] = mapped_column(String(1000), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
@@ -69,6 +70,7 @@ class LessonModel(Base):
     module_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("modules.id"), nullable=False
     )
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     title: Mapped[str] = mapped_column(String(1000), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
@@ -76,3 +78,6 @@ class LessonModel(Base):
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     module: Mapped["ModuleModel"] = relationship(back_populates="lessons")
+    contents: Mapped[list["ContentModel"]] = relationship(
+        back_populates="lesson", cascade="all, delete-orphan", lazy="selectin"
+    )

@@ -1,7 +1,9 @@
 import uuid
 
-from agents.plan_agent import CoursePlanAgent
-from models import CourseModel, PreferenceModel
+from agents.plan_agent.agent import CoursePlanAgent
+from agents.lesson_agent.agent import LessonContentAgent
+from models import CourseModel, PreferenceModel, ContentModel
+from models.content import ContentType
 from schemas import CourseUpdate, PreferenceUpdate
 from utils.uow import UnitOfWork
 
@@ -43,3 +45,25 @@ class LearningService:
 
     async def get_lesson_by_id(self, lesson_id: uuid.UUID):
         return await self.uow.learning_repo.get_lesson_by_id(lesson_id)
+
+    async def generate_and_save_lesson_content(self, lesson, user_preferences: str = ""):
+        agent = LessonContentAgent()
+        content = agent.generate_content(
+            lesson_description=f"{lesson.title}. {lesson.description}",
+            user_preferences=user_preferences
+        )
+        if not isinstance(content, list):
+            raise ValueError(f"Генерация вернула не список блоков. Ответ: {content}")
+        db = self.uow.session
+        for block in content:
+            if not isinstance(block, dict) or "type" not in block or "content" not in block or "position" not in block:
+                raise ValueError(f"Некорректный формат блока: {block}")
+            db_content = ContentModel(
+                lesson_id=lesson.id,
+                type=ContentType(block["type"]),
+                content=block["content"],
+                position=block["position"],
+            )
+            db.add(db_content)
+        await db.commit()
+        return content

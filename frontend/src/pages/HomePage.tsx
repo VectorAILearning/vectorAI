@@ -31,7 +31,7 @@ export default function HomePage() {
       .then((data) => {
         setCurses(data);
       });
-  }, [curses]);
+  }, []);
 
   const addIfNew = useCallback((msg: Message) => {
     setMessages((prev) => {

@@ -1,2 +1,3 @@
-from models.base import *
-from models.course import *
+from .base import *
+from .course import *
+from .content import *

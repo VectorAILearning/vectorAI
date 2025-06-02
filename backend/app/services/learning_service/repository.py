@@ -5,7 +5,7 @@ from models import CourseModel, LessonModel, ModuleModel
 from schemas import CourseIn, CourseUpdate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 
 class LearningRepository:
@@ -91,7 +91,10 @@ class LearningRepository:
         stmt = (
             select(LessonModel)
             .where(LessonModel.id == lesson_id)
-            .options(selectinload(LessonModel.module).selectinload(ModuleModel.course))
+            .options(
+                selectinload(LessonModel.module).selectinload(ModuleModel.course),
+                selectinload(LessonModel.contents)
+            )
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()

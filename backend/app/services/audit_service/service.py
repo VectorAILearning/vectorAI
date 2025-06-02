@@ -2,7 +2,7 @@ import json
 import time
 import uuid
 
-from agents.audit_agent import AuditAgent
+from agents.audit_agent.agent import AuditAgent
 from models import PreferenceModel
 from services import RedisCacheService, get_cache_service
 from services.message_bus import push_and_publish

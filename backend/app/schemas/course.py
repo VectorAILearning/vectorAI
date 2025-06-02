@@ -1,7 +1,17 @@
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from pydantic import BaseModel, Field
+
+
+class ContentOut(BaseModel):
+    id: uuid.UUID
+    type: str
+    content: dict[str, Any]
+    position: int
+
+    class Config:
+        from_attributes = True
 
 
 class LessonIn(BaseModel):
@@ -39,6 +49,7 @@ class LessonOut(BaseModel):
     description: str
     estimated_time_hours: float
     is_completed: bool
+    contents: list[ContentOut] = []
 
     class Config:
         from_attributes = True

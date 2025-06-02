@@ -30,6 +30,8 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "fastapi-security>=0.1.0",
     "email-validator>=2.2.0",
+    "alembic-postgresql-enum>=1.7.0",
+    "alembic-utils>=0.8.8",
 ]
 
 [tool.ruff]

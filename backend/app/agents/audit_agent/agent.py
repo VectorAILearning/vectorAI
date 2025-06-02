@@ -1,12 +1,9 @@
 from agents.base_agent import BaseAgent
 from core.config import openai_settings
 from langchain_openai import ChatOpenAI
-
-SYSTEM_PROMPT = (
-    "Ты — AI-ассистент. За {n} вопросов тебе нужно понять цель, уровень и мотивацию "
-    "пользователя для персонального онлайн-курса. "
-    "Уважай полученные ответы: не повторяйся. Спрашивай по одному наиболее важному вопросу."
-)
+from langchain_core.messages import SystemMessage
+from langchain_core.messages import HumanMessage
+from .prompts import SYSTEM_PROMPT
 
 
 class AuditAgent(BaseAgent):
@@ -20,13 +17,9 @@ class AuditAgent(BaseAgent):
         self.max_questions = openai_settings.AUDIT_MAX_QUESTIONS
 
     def get_system_message(self):
-        from langchain_core.messages import SystemMessage
-
-        return SystemMessage(content=SYSTEM_PROMPT)
+        return SystemMessage(content=SYSTEM_PROMPT.format(n=self.max_questions))
 
     def get_human_message(self, prompt: str):
-        from langchain_core.messages import HumanMessage
-
         return HumanMessage(content=prompt)
 
     def call_llm(self, prompt: str) -> str:
