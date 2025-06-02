@@ -1,30 +1,19 @@
-import React, { useState, useRef, useEffect } from "react";
-import { FaMoon, FaSun } from "react-icons/fa";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
-const CoursePage: React.FC = () => {
+export default function LessonsPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isCourseMenuOpen, setIsCourseMenuOpen] = useState(false);
   const [courses, setCourses] = useState<any[]>([]);
+  const [statusCode, setStatusCode] = useState<string>("");
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
+  const [selectedLessons, setSelectedLessons] = useState<any | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const courseMenuRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
-
   const navigate = useNavigate();
-  const { courseId } = useParams();
-  // Инициализация темы: если нет в localStorage — берём системную, сохраняем в localStorage
-  function getInitialTheme(): "light" | "dark" {
-    const saved = localStorage.getItem("theme");
-    if (saved === "light" || saved === "dark") return saved;
-    const system = window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-    localStorage.setItem("theme", system);
-    return system;
-  }
-  const [theme, setTheme] = useState<"light" | "dark">(getInitialTheme());
+  const { lessonId, courseId } = useParams();
 
   useEffect(() => {
     const apiHost = import.meta.env.VITE_API_HOST;
@@ -32,47 +21,39 @@ const CoursePage: React.FC = () => {
       .then((res) => res.json())
       .then((data) => {
         setCourses(data);
-        const currentCourse = data.find((course) => course.id === courseId);
+        const currentCourse = data.find(
+          (course: any) => course.id === courseId,
+        );
         setSelectedCourse(currentCourse || data[0]);
       })
       .catch((e) => console.log(e))
       .finally(() => setIsLoading(false));
   }, []);
 
-  const getLessonId = (lessonId: string) => {
+  useEffect(() => {
     const apiHost = import.meta.env.VITE_API_HOST;
     fetch(`${apiHost}/api/v1/course/${courseId}/lesson/${lessonId}`)
-      .then((res) => res.json())
+      .then((res: any) => {
+        setStatusCode(res.status);
+        return res.json();
+      })
       .then((data) => {
+        setSelectedLessons(data);
+      });
+  }, []);
+
+  const getLessonId = (lessonId: any) => {
+    const apiHost = import.meta.env.VITE_API_HOST;
+    fetch(`${apiHost}/api/v1/course/${courseId}/lesson/${lessonId}`)
+      .then((res: any) => {
+        setStatusCode(res.status);
+        return res.json();
+      })
+      .then((data) => {
+        setSelectedLessons(data);
         console.log(data);
       });
   };
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(event.target as Node)
-      ) {
-        setIsUserMenuOpen(false);
-      }
-      if (
-        courseMenuRef.current &&
-        !courseMenuRef.current.contains(event.target as Node)
-      ) {
-        setIsCourseMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
 
   return (
     <div className="flex h-screen bg-base-100 text-lg">
@@ -136,7 +117,7 @@ const CoursePage: React.FC = () => {
               <div className="absolute top-full left-0 mt-2 min-w-[600px] w-fit bg-base-300 rounded-2xl shadow-lg z-50">
                 <ul className="menu bg-base-300 p-2 text-xl">
                   {courses.map((course, idx) => (
-                    <Link to={`/courses/${course.id}`} key={course.id}>
+                    <Link key={course.id} to={`/courses/${course.id}`}>
                       <li>
                         <button
                           className="w-full text-left hover:bg-base-300 rounded p-2"
@@ -165,21 +146,6 @@ const CoursePage: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center space-x-4 justify-end w-1/3">
-          <label className="flex cursor-pointer gap-2 items-center">
-            <FaSun
-              className={`transition-colors ${theme === "light" ? "text-yellow-400" : "text-gray-400"}`}
-            />
-            <input
-              type="checkbox"
-              className="toggle"
-              checked={theme === "dark"}
-              onChange={(e) => setTheme(e.target.checked ? "dark" : "light")}
-              aria-label="Переключить тему"
-            />
-            <FaMoon
-              className={`transition-colors ${theme === "dark" ? "text-blue-400" : "text-gray-400"}`}
-            />
-          </label>
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -249,32 +215,20 @@ const CoursePage: React.FC = () => {
         style={{ minHeight: 0 }}
       >
         <div className="max-w-3xl w-full p-8">
-          <h1 className="text-3xl font-bold mb-4 text-center">
-            {selectedCourse?.title}
-          </h1>
-          <p className="mb-8 text-base text-base-content/80 text-center">
-            {selectedCourse?.description}
-          </p>
-          {selectedCourse?.modules?.map((module: any, idx: number) => (
-            <div
-              key={idx}
-              className="mb-10 text-left bg-base-200 rounded-xl p-6 shadow-sm"
-            >
-              <h2 className="text-xl font-semibold mb-2">{module.title}</h2>
-              <p className="mb-3 text-base-content/70">{module.description}</p>
-              <ul className="list-disc ml-6">
-                {module.lessons?.map((lesson: any, lidx: number) => (
-                  <li key={lidx} className="mb-1">
-                    <span className="font-medium">{lesson.title}:</span>{" "}
-                    {lesson.description}{" "}
-                    <span className="text-xs text-base-content/50">
-                      ({lesson.estimated_time_hours} ч)
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {statusCode === 422 ? (
+            <>
+              <h1 className="text-3xl font-bold mb-4 text-center">Not Found</h1>
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold mb-4 text-center">
+                {selectedLessons?.title || selectedLessons?.detail}
+              </h1>
+              <p className="mb-8 text-base text-base-content/80 text-center">
+                {selectedLessons?.description}
+              </p>
+            </>
+          )}
         </div>
         <button className="btn btn-neutral btn-lg fixed bottom-4 right-4 z-50">
           Чат с поддержкой
@@ -282,6 +236,4 @@ const CoursePage: React.FC = () => {
       </main>
     </div>
   );
-};
-
-export default CoursePage;
+}
