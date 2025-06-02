@@ -39,14 +39,7 @@ const CoursePage: React.FC = () => {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const getLessonId = (lessonId: string) => {
-    const apiHost = import.meta.env.VITE_API_HOST;
-    fetch(`${apiHost}/api/v1/course/${courseId}/lesson/${lessonId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        console.log(data);
-      });
-  };
+  
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -231,9 +224,7 @@ const CoursePage: React.FC = () => {
                     <li key={lidx}>
                       <Link
                         to={`/course/${courseId}/lesson/${lesson.id}`}
-                        className="text-base"
-                        onClick={() => getLessonId(lesson.id)}
-                      >
+                        className="text-base"             >
                         {lesson.title}
                       </Link>
                     </li>
