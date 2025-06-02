@@ -4,8 +4,8 @@ from typing import Annotated, AsyncIterator
 from core.database import db_helper
 from fastapi import Depends
 from services.audit_service.repository import AuditRepository
+from services.auth.repositories.auth import AuthRepository
 from services.auth.repositories.token_refresh import RefreshTokenRepository
-from services.auth.repository import AuthRepository
 from services.learning_service.repository import LearningRepository
 from services.session_service.repository import SessionRepository
 from sqlalchemy.ext.asyncio import AsyncSession
