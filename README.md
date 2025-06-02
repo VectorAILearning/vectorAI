@@ -62,15 +62,9 @@ git clone <repository-url>
 cd vectorAI
 ```
 
-2. Создайте файл `.env`:
+2. Заполните `.env` и `frontend/.env по примерам .env.example и frontend/.env.example`
 
-```bash
-cp .env.example .env
-```
-
-3. Заполните `.env` и `.env.frontend`
-
-4. Соберите и запустите проект:
+3. Соберите и запустите проект:
 
 ```bash
 docker compose up --build -d
@@ -79,11 +73,13 @@ docker compose up --build -d
 ## Разработка
 
 Для локальной разработки с горячей перезагрузкой фронтенда и backend-автообновлением используйте `docker-compose-dev.yml`:
+
 Запускаем frontend 
 ```bash
+cd frontend
 npm run dev
 ```
-Запускаем docker
+Запускаем backend
 ```bash
 docker compose -f docker-compose-dev.yml up --build
 ```
