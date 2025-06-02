@@ -39,8 +39,6 @@ const CoursePage: React.FC = () => {
       .finally(() => setIsLoading(false));
   }, []);
 
-  
-
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -224,7 +222,8 @@ const CoursePage: React.FC = () => {
                     <li key={lidx}>
                       <Link
                         to={`/course/${courseId}/lesson/${lesson.id}`}
-                        className="text-base"             >
+                        className="text-base"
+                      >
                         {lesson.title}
                       </Link>
                     </li>

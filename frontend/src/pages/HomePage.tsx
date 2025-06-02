@@ -18,7 +18,6 @@ export default function HomePage() {
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [wsTimestamp, setWsTimestamp] = useState(Date.now());
   const [curses, setCurses] = useState([]);
-
   const navigate = useNavigate();
   const chatRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -32,7 +31,7 @@ export default function HomePage() {
       .then((data) => {
         setCurses(data);
       });
-  }, []);
+  }, [curses]);
 
   const addIfNew = useCallback((msg: Message) => {
     setMessages((prev) => {
