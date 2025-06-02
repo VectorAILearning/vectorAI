@@ -79,7 +79,11 @@ docker compose up --build -d
 ## Разработка
 
 Для локальной разработки с горячей перезагрузкой фронтенда и backend-автообновлением используйте `docker-compose-dev.yml`:
-
+Запускаем frontend 
+```bash
+npm run dev
+```
+Запускаем docker
 ```bash
 docker compose -f docker-compose-dev.yml up --build
 ```

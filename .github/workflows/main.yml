@@ -48,7 +48,7 @@ jobs:
       - name: 🔐 Copy env files
         run: |
           cp .env.example .env
-          cp .env.frontend.example .env.frontend
+          cp ./frontend/.env.example ./frontend/.env
   
       - name: 🧱 Build & up containers
         run: |

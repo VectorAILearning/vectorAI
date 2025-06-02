@@ -78,7 +78,7 @@ services:
     build: frontend
     container_name: ailearning_frontend
     env_file:
-      - .env.frontend
+      - ./frontend/.env
     volumes:
       - frontend_dist:/app/dist
     command: sh -c "pnpm build && cp -r /app/dist/* /dist-output"
