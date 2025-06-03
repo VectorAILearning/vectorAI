@@ -33,4 +33,3 @@ async def send_verification_email(email: str, token: str):
         await fm.send_message(message)
     except Exception as e:
         log.error(f"Error sending email: {e}", exc_info=True)
-        raise
