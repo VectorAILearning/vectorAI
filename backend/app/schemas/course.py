@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, List, Optional
+from typing import Any, List
 
 from pydantic import BaseModel, Field
 
@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 class ContentOut(BaseModel):
     id: uuid.UUID
     type: str
+    description: str | None = None
     content: dict[str, Any]
     position: int
 
@@ -14,10 +15,17 @@ class ContentOut(BaseModel):
         from_attributes = True
 
 
+class ContentIn(BaseModel):
+    type: str
+    description: str | None = None
+    position: int = 0
+
+
 class LessonIn(BaseModel):
     title: str = Field(default=None, max_length=255)
     description: str = Field(default=None, max_length=255)
     estimated_time_hours: float = 3
+    contents: List["ContentIn"] = []
 
 
 class ModuleIn(BaseModel):
