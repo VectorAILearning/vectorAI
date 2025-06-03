@@ -8,12 +8,12 @@ from langchain_openai import ChatOpenAI
 from .prompts import SYSTEM_PROMPT
 
 
-class LessonContentAgent(BaseAgent):
+class LessonPlanAgent(BaseAgent):
     def __init__(self):
         llm = ChatOpenAI(
             api_key=openai_settings.OPENAI_API_KEY,
-            model=openai_settings.OPENAI_MODEL_LESSON_CONTENT,
-            temperature=openai_settings.OPENAI_TEMPERATURE_LESSON_CONTENT,
+            model=openai_settings.OPENAI_MODEL_LESSON_PLAN,
+            temperature=openai_settings.OPENAI_TEMPERATURE_LESSON_PLAN,
         )
         super().__init__(llm=llm)
 
@@ -23,13 +23,14 @@ class LessonContentAgent(BaseAgent):
     def get_human_message(self, prompt: str):
         return HumanMessage(content=prompt)
 
-    def generate_content(
-        self, lesson_description: str, user_preferences: str = ""
+    def generate_lesson_content_plan(
+        self, lesson_description: str, user_preferences: str = "", course_structure_json: str = ""
     ) -> list:
         prompt = (
+            (f"Структура курса и контент предыдущих уроков (JSON):\n{course_structure_json}\n") +
             f"Описание урока:\n{lesson_description}\n"
             f"Предпочтения пользователя:\n{user_preferences}\n"
-            "Сгенерируй разнообразный контент для этого урока строго по формату."
+            "Сгенерируй разнообразный план контента для этого урока строго по формату."
         )
         messages = [self.get_system_message(), self.get_human_message(prompt)]
         response = self.llm.invoke(messages).content

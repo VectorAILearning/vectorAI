@@ -69,17 +69,17 @@ async def create_learning_task(_, sid: str, history: str):
             }
             await redis.add_generated_course(sid, course_data)
 
-            # Генерируем контент для первого урока первого модуля
             first_lesson = None
             if course.modules and len(course.modules) > 0:
                 first_module = course.modules[0]
                 if first_module.lessons and len(first_module.lessons) > 0:
                     first_lesson = first_module.lessons[0]
+
             if first_lesson:
                 await push_and_publish(
-                    sid, _msg("bot", f"Генерируем контент для первого урока курса…")
+                    sid, _msg("bot", f"Генерируем план для первого урока курса…")
                 )
-                await LearningService(uow).generate_and_save_lesson_content(
+                await LearningService(uow).generate_and_save_lesson_content_plan(
                     first_lesson, user_pref.summary
                 )
                 await push_and_publish(
@@ -97,5 +97,15 @@ async def create_learning_task(_, sid: str, history: str):
             await redis.set_session_status(sid, "course_created")
 
             log.info("pipeline done %s", sid)
+    except Exception as e:
+        log.exception(f"Ошибка при генерации курса для sid={sid}: {e}")
+        await push_and_publish(
+            sid,
+            _msg("bot", f"Произошла ошибка при создании курса: {str(e)}", "error"),
+        )
+        await push_and_publish(
+            sid,
+            _msg("system", "Ошибка при создании курса", "course_creation_error"),
+        )
     finally:
         await redis.clear_course_generation_in_progress(sid)

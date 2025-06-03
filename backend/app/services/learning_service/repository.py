@@ -48,25 +48,24 @@ class LearningRepository:
         course_in = CourseIn(**course_json)
 
         course = CourseModel(
-            title=course_in.course_title if course_in.course_title else "Без названия",
-            description=(
-                course_in.course_description
-                if course_in.course_description
-                else "Без описания"
-            ),
+            title=course_in.title,
+            description=course_in.description,
+            goal=course_in.goal,
             estimated_time_hours=course_in.estimated_time_hours,
             user_id=uuid.UUID(user_id) if user_id else None,
             session_id=uuid.UUID(session_id) if session_id else None,
             modules=[
                 ModuleModel(
-                    title=mod.title if mod.title else "Без названия",
-                    description=mod.description if mod.description else "Без описания",
+                    title=mod.title,
+                    description=mod.description,
                     estimated_time_hours=mod.estimated_time_hours,
+                    goal=mod.goal,
                     lessons=[
                         LessonModel(
-                            title=les.title if les.title else "Без названия",
+                            title=les.title,
+                            goal=les.goal,
                             description=(
-                                les.description if les.description else "Без описания"
+                                les.description
                             ),
                             estimated_time_hours=les.estimated_time_hours,
                         )
@@ -87,7 +86,9 @@ class LearningRepository:
             select(CourseModel)
             .where(CourseModel.id == course_id)
             .options(
-                selectinload(CourseModel.modules).selectinload(ModuleModel.lessons)
+                selectinload(CourseModel.modules)
+                .selectinload(ModuleModel.lessons)
+                .selectinload(LessonModel.contents)
             )
         )
         result = await self.db.execute(stmt)
