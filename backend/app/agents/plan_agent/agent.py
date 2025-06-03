@@ -1,5 +1,4 @@
 import json
-from typing import List
 
 from agents.base_agent import BaseAgent
 from core.config import openai_settings
@@ -13,8 +12,8 @@ class CoursePlanAgent(BaseAgent):
     def __init__(self):
         llm = ChatOpenAI(
             api_key=openai_settings.OPENAI_API_KEY,
-            model=openai_settings.OPENAI_MODEL_AUDIT,
-            temperature=0.2,
+            model=openai_settings.OPENAI_MODEL_COURSE_PLAN,
+            temperature=openai_settings.OPENAI_TEMPERATURE_COURSE_PLAN,
         )
         super().__init__(llm=llm)
 

@@ -77,13 +77,13 @@ async def create_learning_task(_, sid: str, history: str):
                     first_lesson = first_module.lessons[0]
             if first_lesson:
                 await push_and_publish(
-                    sid, _msg("bot", f"Генерируем контент для первого урока курса…")
+                    sid, _msg("bot", "Генерируем контент для первого урока курса…")
                 )
                 await LearningService(uow).generate_and_save_lesson_content(
                     first_lesson, user_pref.summary
                 )
                 await push_and_publish(
-                    sid, _msg("bot", f"Контент для первого урока сгенерирован!")
+                    sid, _msg("bot", "Контент для первого урока сгенерирован!")
                 )
 
             await push_and_publish(
@@ -99,3 +99,26 @@ async def create_learning_task(_, sid: str, history: str):
             log.info("pipeline done %s", sid)
     finally:
         await redis.clear_course_generation_in_progress(sid)
+
+
+async def generate_lesson_content_task(_, lesson_id: str, user_pref: str = ""):
+    async with uow_context() as uow:
+        service = LearningService(uow)
+        lesson = await service.get_lesson_by_id(uuid.UUID(lesson_id))
+        if not lesson:
+            return
+        await service.generate_and_save_lesson_content(lesson, user_pref)
+
+
+async def finish_course_task(_, course_id: str):
+    async with uow_context() as uow:
+        service = LearningService(uow)
+        course = await service.get_course_by_id(uuid.UUID(course_id))
+        if not course:
+            return
+        from agents.finishing_agent.agent import FinishingAgent
+
+        agent = FinishingAgent()
+        summary = agent.finish_course(course.description)
+        log.info("Finishing course %s", course_id)
+        await push_and_publish(course.session_id or "", _msg("bot", summary))

@@ -1,12 +1,18 @@
+from __future__ import annotations
+
 import uuid
 from enum import Enum
 
 from core.database import Base
-from sqlalchemy import JSON
+from sqlalchemy import JSON, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .course import LessonModel
 
 
 class ContentType(str, Enum):
@@ -31,6 +37,7 @@ class ContentModel(Base):
         SAEnum(ContentType, name="content_type_enum", create_constraint=True),
         nullable=False,
     )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     content: Mapped[dict] = mapped_column(JSON, nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 

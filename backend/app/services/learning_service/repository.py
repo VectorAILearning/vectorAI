@@ -1,11 +1,12 @@
 import uuid
 
 from fastapi import HTTPException
-from models import CourseModel, LessonModel, ModuleModel
+from models import ContentModel, CourseModel, LessonModel, ModuleModel
+from models.content import ContentType
 from schemas import CourseIn, CourseUpdate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import selectinload
 
 
 class LearningRepository:
@@ -69,6 +70,15 @@ class LearningRepository:
                                 les.description if les.description else "Без описания"
                             ),
                             estimated_time_hours=les.estimated_time_hours,
+                            contents=[
+                                ContentModel(
+                                    type=ContentType(c.type),
+                                    description=c.description,
+                                    content={},
+                                    position=c.position,
+                                )
+                                for c in (les.contents or [])
+                            ],
                         )
                         for les in mod.lessons
                     ],
@@ -87,7 +97,9 @@ class LearningRepository:
             select(CourseModel)
             .where(CourseModel.id == course_id)
             .options(
-                selectinload(CourseModel.modules).selectinload(ModuleModel.lessons)
+                selectinload(CourseModel.modules)
+                .selectinload(ModuleModel.lessons)
+                .selectinload(LessonModel.contents)
             )
         )
         result = await self.db.execute(stmt)

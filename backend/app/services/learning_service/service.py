@@ -1,6 +1,7 @@
 import uuid
 
-from agents.lesson_agent.agent import LessonContentAgent
+from agents.content_agent.agent import ContentAgent
+from agents.lesson_agent.agent import LessonPlanAgent
 from agents.plan_agent.agent import CoursePlanAgent
 from models import ContentModel, CourseModel, PreferenceModel
 from models.content import ContentType
@@ -46,10 +47,38 @@ class LearningService:
     async def get_lesson_by_id(self, lesson_id: uuid.UUID):
         return await self.uow.learning_repo.get_lesson_by_id(lesson_id)
 
+    async def generate_and_save_lesson_plan(self, lesson, user_preferences: str = ""):
+        agent = LessonPlanAgent()
+        plan = agent.generate_plan(
+            lesson_description=f"{lesson.title}. {lesson.description}",
+            user_preferences=user_preferences,
+        )
+        if not isinstance(plan, list):
+            raise ValueError(f"Генерация вернула не список блоков. Ответ: {plan}")
+        db = self.uow.session
+        for block in plan:
+            if (
+                not isinstance(block, dict)
+                or "type" not in block
+                or "description" not in block
+                or "position" not in block
+            ):
+                raise ValueError(f"Некорректный формат блока: {block}")
+            db_content = ContentModel(
+                lesson_id=lesson.id,
+                type=ContentType(block["type"]),
+                description=block["description"],
+                content={},
+                position=block["position"],
+            )
+            db.add(db_content)
+        await db.commit()
+        return plan
+
     async def generate_and_save_lesson_content(
         self, lesson, user_preferences: str = ""
     ):
-        agent = LessonContentAgent()
+        agent = ContentAgent()
         content = agent.generate_content(
             lesson_description=f"{lesson.title}. {lesson.description}",
             user_preferences=user_preferences,
@@ -68,6 +97,7 @@ class LearningService:
             db_content = ContentModel(
                 lesson_id=lesson.id,
                 type=ContentType(block["type"]),
+                description=block.get("description"),
                 content=block["content"],
                 position=block["position"],
             )

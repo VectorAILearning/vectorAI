@@ -1,10 +1,14 @@
 from arq.connections import RedisSettings
 from core.config import settings
-from workers.audit_tasks import create_learning_task
+from workers.audit_tasks import (
+    create_learning_task,
+    finish_course_task,
+    generate_lesson_content_task,
+)
 
 
 class WorkerSettings:
-    functions = [create_learning_task]
+    functions = [create_learning_task, generate_lesson_content_task, finish_course_task]
     redis_settings = RedisSettings(
         host=settings.REDIS_HOST,
         port=settings.REDIS_PORT,
