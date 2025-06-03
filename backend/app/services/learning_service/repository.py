@@ -48,20 +48,26 @@ class LearningRepository:
         course_in = CourseIn(**course_json)
 
         course = CourseModel(
-            title=course_in.course_title,
-            description=course_in.course_description,
+            title=course_in.course_title if course_in.course_title else "Без названия",
+            description=(
+                course_in.course_description
+                if course_in.course_description
+                else "Без описания"
+            ),
             estimated_time_hours=course_in.estimated_time_hours,
             user_id=uuid.UUID(user_id) if user_id else None,
             session_id=uuid.UUID(session_id) if session_id else None,
             modules=[
                 ModuleModel(
-                    title=mod.title,
-                    description=mod.description,
+                    title=mod.title if mod.title else "Без названия",
+                    description=mod.description if mod.description else "Без описания",
                     estimated_time_hours=mod.estimated_time_hours,
                     lessons=[
                         LessonModel(
-                            title=les.title,
-                            description=les.description,
+                            title=les.title if les.title else "Без названия",
+                            description=(
+                                les.description if les.description else "Без описания"
+                            ),
                             estimated_time_hours=les.estimated_time_hours,
                         )
                         for les in mod.lessons
