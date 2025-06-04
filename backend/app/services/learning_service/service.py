@@ -1,10 +1,14 @@
+import json
 import uuid
 
-from agents.lesson_agent.agent import LessonContentAgent
+from agents.lesson_agent.agent import LessonPlanAgent
 from agents.plan_agent.agent import CoursePlanAgent
 from models import ContentModel, CourseModel, PreferenceModel
 from models.content import ContentType
+from models.course import LessonModel
+from pydantic import ValidationError
 from schemas import CourseUpdate, PreferenceUpdate
+from schemas.course import ContentOut, CourseOut
 from utils.uow import UnitOfWork
 
 
@@ -46,31 +50,41 @@ class LearningService:
     async def get_lesson_by_id(self, lesson_id: uuid.UUID):
         return await self.uow.learning_repo.get_lesson_by_id(lesson_id)
 
-    async def generate_and_save_lesson_content(
-        self, lesson, user_preferences: str = ""
-    ):
-        agent = LessonContentAgent()
-        content = agent.generate_content(
-            lesson_description=f"{lesson.title}. {lesson.description}",
+    async def generate_and_save_lesson_content_plan(
+        self, lesson: LessonModel, user_preferences: str = ""
+    ) -> list[ContentModel]:
+        course_dict = CourseOut.model_validate(lesson.module.course).model_dump()
+        content_plan = LessonPlanAgent().generate_lesson_content_plan(
+            lesson_description=f"{lesson.title}. {lesson.description}. Цель: {lesson.goal}",
             user_preferences=user_preferences,
+            course_structure_json=json.dumps(
+                course_dict, ensure_ascii=False, default=str
+            ),
         )
-        if not isinstance(content, list):
-            raise ValueError(f"Генерация вернула не список блоков. Ответ: {content}")
-        db = self.uow.session
-        for block in content:
-            if (
-                not isinstance(block, dict)
-                or "type" not in block
-                or "content" not in block
-                or "position" not in block
-            ):
-                raise ValueError(f"Некорректный формат блока: {block}")
+        if not isinstance(content_plan, list):
+            raise ValueError(
+                f"Генерация вернула не список блоков. Ответ: {content_plan}"
+            )
+
+        content_list = []
+
+        for block in content_plan:
+            try:
+                content_obj = ContentOut.model_validate(block)
+            except ValidationError as e:
+                raise ValueError(f"Некорректный формат блока: {e}")
             db_content = ContentModel(
                 lesson_id=lesson.id,
-                type=ContentType(block["type"]),
-                content=block["content"],
-                position=block["position"],
+                type=ContentType(content_obj.type),
+                description=content_obj.description,
+                goal=content_obj.goal,
+                content=content_obj.content,
+                position=content_obj.position,
             )
-            db.add(db_content)
-        await db.commit()
-        return content
+            self.uow.session.add(db_content)
+            content_list.append(db_content)
+
+        await self.uow.session.commit()
+        for db_content in content_list:
+            await self.uow.session.refresh(db_content)
+        return content_list

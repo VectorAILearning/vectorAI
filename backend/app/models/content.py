@@ -4,7 +4,7 @@ from enum import Enum
 from core.database import Base
 from sqlalchemy import JSON
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import ForeignKey, Integer
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,7 +13,9 @@ class ContentType(str, Enum):
     TEXT = "text"
     VIDEO = "video"
     DIALOG = "dialog"
-    OPEN_ANSWER = "open_answer"
+    PRACTICE = "practice"
+    EXAMPLES = "examples"
+    MISTAKES = "mistakes"
     REFLECTION = "reflection"
     TEST = "test"
 
@@ -31,6 +33,8 @@ class ContentModel(Base):
         SAEnum(ContentType, name="content_type_enum", create_constraint=True),
         nullable=False,
     )
+    description: Mapped[str] = mapped_column(String(1000), nullable=True)
+    goal: Mapped[str] = mapped_column(String(1000), nullable=True)
     content: Mapped[dict] = mapped_column(JSON, nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 

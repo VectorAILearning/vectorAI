@@ -5,10 +5,12 @@ from pydantic import BaseModel, Field
 
 
 class ContentOut(BaseModel):
-    id: uuid.UUID
+    id: uuid.UUID | None = None
     type: str
-    content: dict[str, Any]
+    content: dict[str, Any] | None = None
     position: int
+    description: Optional[str] = None
+    goal: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -16,20 +18,25 @@ class ContentOut(BaseModel):
 
 class LessonIn(BaseModel):
     title: str = Field(default=None, max_length=255)
-    description: str = Field(default=None, max_length=255)
+    description: str = Field(default=None, max_length=1000)
+    goal: str = Field(default=None, max_length=1000)
     estimated_time_hours: float = 3
+    position: int
 
 
 class ModuleIn(BaseModel):
     title: str = Field(default=None, max_length=255)
-    description: str = Field(default=None, max_length=255)
+    description: str = Field(default=None, max_length=1000)
+    goal: str = Field(default=None, max_length=1000)
     estimated_time_hours: float = 15
     lessons: List[LessonIn] = []
+    position: int
 
 
 class CourseIn(BaseModel):
-    course_title: str = Field(default=None, max_length=255)
-    course_description: str = Field(default=None, max_length=255)
+    title: str = Field(default=None, max_length=255)
+    goal: str = Field(default=None, max_length=1000)
+    description: str = Field(default=None, max_length=255)
     estimated_time_hours: float = 60
     modules: List[ModuleIn] = []
 
@@ -47,9 +54,11 @@ class LessonOut(BaseModel):
     id: uuid.UUID
     title: str
     description: str
+    goal: Optional[str] = None
     estimated_time_hours: float
     is_completed: bool
     contents: list[ContentOut] = []
+    position: int
 
     class Config:
         from_attributes = True
@@ -59,9 +68,11 @@ class ModuleOut(BaseModel):
     id: uuid.UUID
     title: str
     description: str | None = None
+    goal: Optional[str] = None
     estimated_time_hours: float
     is_completed: bool
     lessons: list[LessonOut] = []
+    position: int
 
     class Config:
         from_attributes = True
@@ -71,6 +82,7 @@ class CourseOut(BaseModel):
     id: uuid.UUID
     title: str
     description: str
+    goal: Optional[str] = None
     estimated_time_hours: float
     is_completed: bool
     modules: list[ModuleOut] = []

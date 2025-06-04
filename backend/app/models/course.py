@@ -23,6 +23,7 @@ class CourseModel(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     estimated_time_hours: Mapped[float] = mapped_column(Float, nullable=False)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    goal: Mapped[str] = mapped_column(String(1000), nullable=True)
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="courses")
     modules: Mapped[list["ModuleModel"]] = relationship(
@@ -52,6 +53,7 @@ class ModuleModel(Base):
 
     title: Mapped[str] = mapped_column(String(1000), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
+    goal: Mapped[str] = mapped_column(String(1000), nullable=True)
     estimated_time_hours: Mapped[float] = mapped_column(Float, nullable=False)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -74,6 +76,7 @@ class LessonModel(Base):
 
     title: Mapped[str] = mapped_column(String(1000), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    goal: Mapped[str] = mapped_column(String(1000), nullable=True)
     estimated_time_hours: Mapped[float] = mapped_column(Float, nullable=False)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
 

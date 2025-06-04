@@ -1,14 +1,21 @@
+import logging
 import re
-from abc import ABC, abstractmethod
+from abc import ABC
+
+from langchain_core.prompts import ChatPromptTemplate
+
+logger = logging.getLogger(__name__)
 
 
 class BaseAgent(ABC):
-    def __init__(self, llm=None, **kwargs):
+    def __init__(self, llm=None, prompt_template: ChatPromptTemplate = None, **kwargs):
         """
-        llm — любой объект (например, ChatOpenAI, HuggingFace, LocalLLM, etc.)
-        kwargs — дополнительные параметры (можно сохранять их как self.config)
+        llm — объект модели (например, ChatOpenAI)
+        prompt_template — ChatPromptTemplate (включает и system, и human части)
+        kwargs — доп. параметры
         """
         self.llm = llm
+        self.prompt_template = prompt_template
         self.config = kwargs
 
     @staticmethod
@@ -16,15 +23,38 @@ class BaseAgent(ABC):
         """Удаляет суррогатные пары unicode (например, эмодзи, сломанные символы)."""
         return re.sub(r"[\ud800-\udfff]", "", text)
 
-    def call_llm(self, prompt: str) -> str:
-        messages = [self.get_system_message(), self.get_human_message(prompt)]
-        result = self.llm.invoke(messages).content
-        return self.remove_surrogates(result)
+    def call_llm(self, input_data: dict) -> str:
+        """
+        Выполняет prompt → llm → str (без json)
+        """
+        try:
+            prompt = self.prompt_template.format_messages(**input_data)
+            result = self.llm.invoke(prompt).content
+            logger.info(result)
+            return self.remove_surrogates(result)
+        except Exception as e:
+            logger.exception("Ошибка при вызове LLM:")
+            return "Произошла ошибка генерации."
 
-    @abstractmethod
-    def get_system_message(self):
-        pass
+    def call_json_llm(self, input_data: dict) -> dict:
+        """
+        prompt → llm → json (через безопасный парсинг)
+        """
+        try:
+            prompt = self.prompt_template.format_messages(**input_data)
+            result = self.llm.invoke(prompt).content
+            clear_result = self.remove_surrogates(result)
+            logger.info(clear_result)
+            return self._safe_json_parse(clear_result)
+        except Exception as e:
+            logger.exception("Ошибка вызова или разбора JSON:")
+            return {"raw": "Произошла ошибка генерации."}
 
-    @abstractmethod
-    def get_human_message(self, prompt: str):
-        pass
+    @staticmethod
+    def _safe_json_parse(text: str) -> dict:
+        import json
+
+        try:
+            return json.loads(text)
+        except Exception:
+            return {"raw": text}
