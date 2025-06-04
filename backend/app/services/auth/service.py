@@ -71,7 +71,7 @@ class AuthService:
         await self.uow.session.flush()
         await self.uow.session.refresh(user)
         verification_token = self.create_email_verification_token(user.email)
-        await send_verification_email(user.email, verification_token)
+        await send_verification_email(email, verification_token)
         return user
 
     @staticmethod
