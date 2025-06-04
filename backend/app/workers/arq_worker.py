@@ -1,9 +1,10 @@
+import logging
+import sys
+
 from arq.connections import RedisSettings, create_pool
 from core.config import settings
 from workers.audit_tasks import create_learning_task
 from workers.content_tasks import generate_block_content
-import logging
-import sys
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -12,8 +13,9 @@ logging.basicConfig(
     force=True,
 )
 
+
 async def on_startup(ctx):
-    ctx['arq_queue'] = await create_pool(
+    ctx["arq_queue"] = await create_pool(
         RedisSettings(
             host=settings.REDIS_HOST,
             port=settings.REDIS_PORT,
@@ -22,9 +24,11 @@ async def on_startup(ctx):
         )
     )
 
+
 async def on_shutdown(ctx):
     arq_queue = ctx["arq_queue"]
     await arq_queue.close()
+
 
 class WorkerSettings:
     functions = [

@@ -1,15 +1,15 @@
-import uuid
 import json
+import uuid
 
 from agents.lesson_agent.agent import LessonPlanAgent
 from agents.plan_agent.agent import CoursePlanAgent
-from models.course import LessonModel
 from models import ContentModel, CourseModel, PreferenceModel
 from models.content import ContentType
-from schemas import CourseUpdate, PreferenceUpdate
-from utils.uow import UnitOfWork
-from schemas.course import CourseOut, ContentOut
+from models.course import LessonModel
 from pydantic import ValidationError
+from schemas import CourseUpdate, PreferenceUpdate
+from schemas.course import ContentOut, CourseOut
+from utils.uow import UnitOfWork
 
 
 class LearningService:
@@ -57,13 +57,17 @@ class LearningService:
         content_plan = LessonPlanAgent().generate_lesson_content_plan(
             lesson_description=f"{lesson.title}. {lesson.description}. Цель: {lesson.goal}",
             user_preferences=user_preferences,
-            course_structure_json=json.dumps(course_dict, ensure_ascii=False, default=str),
+            course_structure_json=json.dumps(
+                course_dict, ensure_ascii=False, default=str
+            ),
         )
         if not isinstance(content_plan, list):
-            raise ValueError(f"Генерация вернула не список блоков. Ответ: {content_plan}")
-        
+            raise ValueError(
+                f"Генерация вернула не список блоков. Ответ: {content_plan}"
+            )
+
         content_list = []
-        
+
         for block in content_plan:
             try:
                 content_obj = ContentOut.model_validate(block)
@@ -79,7 +83,7 @@ class LearningService:
             )
             self.uow.session.add(db_content)
             content_list.append(db_content)
-        
+
         await self.uow.session.commit()
         for db_content in content_list:
             await self.uow.session.refresh(db_content)

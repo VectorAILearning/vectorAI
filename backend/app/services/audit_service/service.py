@@ -70,7 +70,7 @@ class AuditDialogService:
 
         if not q:
             ask = self.agent.call_llm(
-                self.agent.get_initial_question(first_user["text"])
+                {"prompt": self.agent.get_initial_question(first_user.get("text"))}
             )
             await push_and_publish(
                 sid,
@@ -97,7 +97,13 @@ class AuditDialogService:
                 break
 
             history = self._history_str(q, a, first_user["text"])
-            ask = self.agent.call_llm(self.agent.next_question_prompt(history))
+            ask = self.agent.call_llm(
+                {
+                    "prompt": self.agent.get_initial_question(
+                        self.agent.next_question_prompt(history)
+                    )
+                }
+            )
             await push_and_publish(
                 sid,
                 {

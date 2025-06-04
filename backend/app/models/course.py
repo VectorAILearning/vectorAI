@@ -24,7 +24,7 @@ class CourseModel(Base):
     estimated_time_hours: Mapped[float] = mapped_column(Float, nullable=False)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     goal: Mapped[str] = mapped_column(String(1000), nullable=True)
-    
+
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="courses")
     modules: Mapped[list["ModuleModel"]] = relationship(
         back_populates="course",

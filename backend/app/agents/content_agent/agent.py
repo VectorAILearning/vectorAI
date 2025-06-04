@@ -1,29 +1,39 @@
-import json
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, HumanMessage
+from agents.base_agent import BaseAgent
 from core.config import openai_settings
-from .prompts import SYSTEM_PROMPT
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
 
-class ContentAgent:
+from .prompts import HUMAN_PROMPT, SYSTEM_PROMPT
+
+
+class ContentAgent(BaseAgent):
     def __init__(self):
-        self.llm = ChatOpenAI(
+        llm = ChatOpenAI(
             api_key=openai_settings.OPENAI_API_KEY,
             model=openai_settings.OPENAI_MODEL_LESSON_CONTENT,
             temperature=openai_settings.OPENAI_TEMPERATURE_LESSON_CONTENT,
         )
-        self.system_message = SystemMessage(content=SYSTEM_PROMPT)
-
-    def generate_content(self, type_: str, description: str, goal: str, course_context: str = "", lesson_context: str = "") -> dict:
-        prompt = (
-            f"Контекст курса (JSON):\n{course_context}\n"
-            f"Контекст урока (JSON):\n{lesson_context}\n"
-            f"Тип блока: {type_}\n"
-            f"Описание: {description}\n"
-            f"Цель: {goal}\n"
+        prompt_template = ChatPromptTemplate.from_messages(
+            [
+                ("system", SYSTEM_PROMPT),
+                ("human", HUMAN_PROMPT),
+            ]
         )
-        messages = [self.system_message, HumanMessage(content=prompt)]
-        response = self.llm.invoke(messages).content
-        try:
-            return json.loads(response)
-        except Exception:
-            return {"raw": response} 
+        super().__init__(llm=llm, prompt_template=prompt_template)
+
+    def generate_content(
+        self,
+        type_: str,
+        description: str,
+        goal: str,
+        course_context: str = "",
+        lesson_context: str = "",
+    ) -> dict:
+        input_data = {
+            "type_": type_,
+            "description": description,
+            "goal": goal,
+            "course_context": course_context,
+            "lesson_context": lesson_context,
+        }
+        return self.call_json_llm(input_data)

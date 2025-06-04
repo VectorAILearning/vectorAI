@@ -2,10 +2,10 @@ import json
 
 from agents.base_agent import BaseAgent
 from core.config import openai_settings
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from .prompts import SYSTEM_PROMPT
+from .prompts import HUMAN_PROMPT, SYSTEM_PROMPT
 
 
 class LessonPlanAgent(BaseAgent):
@@ -15,27 +15,26 @@ class LessonPlanAgent(BaseAgent):
             model=openai_settings.OPENAI_MODEL_LESSON_PLAN,
             temperature=openai_settings.OPENAI_TEMPERATURE_LESSON_PLAN,
         )
-        super().__init__(llm=llm)
-
-    def get_system_message(self):
-        return SystemMessage(content=SYSTEM_PROMPT)
-
-    def get_human_message(self, prompt: str):
-        return HumanMessage(content=prompt)
+        prompt_template = ChatPromptTemplate.from_messages(
+            [
+                ("system", SYSTEM_PROMPT),
+                ("human", HUMAN_PROMPT),
+            ]
+        )
+        super().__init__(llm=llm, prompt_template=prompt_template)
 
     def generate_lesson_content_plan(
-        self, lesson_description: str, user_preferences: str = "", course_structure_json: str = ""
+        self,
+        lesson_description: str,
+        user_preferences: str = "",
+        course_structure_json: str = "",
     ) -> list:
-        prompt = (
-            (f"Структура курса и контент предыдущих уроков (JSON):\n{course_structure_json}\n") +
-            f"Описание урока:\n{lesson_description}\n"
-            f"Предпочтения пользователя:\n{user_preferences}\n"
-            "Сгенерируй разнообразный план контента для этого урока строго по формату."
-        )
-        messages = [self.get_system_message(), self.get_human_message(prompt)]
-        response = self.llm.invoke(messages).content
-        try:
-            data = json.loads(response)
-        except Exception:
-            data = [{"raw": response}]
-        return data
+        input_data = {
+            "course_structure_json": course_structure_json,
+            "lesson_description": lesson_description,
+            "user_preferences": user_preferences,
+        }
+        data = self.call_json_llm(input_data)
+        if isinstance(data, list):
+            return data
+        return [data]

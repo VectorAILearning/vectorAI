@@ -9,7 +9,6 @@ from services.message_bus import push_and_publish
 from services.redis_cache_service import RedisCacheService
 from utils.uow import uow_context
 
-
 log = logging.getLogger(__name__)
 
 
@@ -79,9 +78,9 @@ async def create_learning_task(ctx, sid: str, history: str):
                 await push_and_publish(
                     sid, _msg("bot", "Генерируем план для первого урока курса…")
                 )
-                content_list = await LearningService(uow).generate_and_save_lesson_content_plan(
-                    first_lesson, user_pref.summary
-                )
+                content_list = await LearningService(
+                    uow
+                ).generate_and_save_lesson_content_plan(first_lesson, user_pref.summary)
                 await push_and_publish(
                     sid, _msg("bot", "План первого урока сгенерирован!")
                 )
@@ -91,14 +90,15 @@ async def create_learning_task(ctx, sid: str, history: str):
                 )
                 if content_list:
                     first_block = min(content_list, key=lambda b: b.position)
-                    await ctx['arq_queue'].enqueue_job(
-                        'generate_block_content',
+                    await ctx["arq_queue"].enqueue_job(
+                        "generate_block_content",
                         block_id=str(first_block.id),
                         lesson_id=str(first_lesson.id),
-                        _queue_name='course_generation'
+                        _queue_name="course_generation",
                     )
                 await push_and_publish(
-                    sid, _msg("bot", "Контент первого урока будет сгенерирован поэтапно!")
+                    sid,
+                    _msg("bot", "Контент первого урока будет сгенерирован поэтапно!"),
                 )
 
             await push_and_publish(

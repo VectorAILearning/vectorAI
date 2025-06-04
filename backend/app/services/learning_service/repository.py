@@ -66,9 +66,7 @@ class LearningRepository:
                             title=les.title,
                             goal=les.goal,
                             position=les.position,
-                            description=(
-                                les.description
-                            ),
+                            description=(les.description),
                             estimated_time_hours=les.estimated_time_hours,
                         )
                         for les in mod.lessons
