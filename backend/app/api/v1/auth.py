@@ -34,7 +34,7 @@ async def login(
 @auth_router.post("/register", response_model=RegistrationResponse)
 async def register(
     request: Request,
-    user_data: UserRegister = Depends(),
+    user_data: UserRegister,
     uow: UnitOfWork = Depends(get_uow),
 ):
     try:

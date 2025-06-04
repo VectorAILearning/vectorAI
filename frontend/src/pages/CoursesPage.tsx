@@ -32,12 +32,26 @@ const CoursePage: React.FC = () => {
       .then((res) => res.json())
       .then((data) => {
         setCourses(data);
-        const currentCourse = data.find((course) => course.id === courseId);
-        setSelectedCourse(currentCourse || data[0]);
+
+        if (data.length === 0) {
+          navigate(`/`, { replace: true });
+          return;
+        }
+
+        const currentCourse = data.find(
+          (course: any) => course.id === courseId,
+        );
+
+        if (!courseId || !currentCourse) {
+          navigate(`/course/${data[0].id}`, { replace: true });
+          return;
+        }
+
+        setSelectedCourse(currentCourse);
       })
       .catch((e) => console.log(e))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [courseId, navigate]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

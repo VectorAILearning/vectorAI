@@ -1,5 +1,9 @@
+import logging
+
 from core.config import settings
-from fastapi_mail import ConnectionConfig, FastMail, MessageSchema
+from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
+
+log = logging.getLogger(__name__)
 
 conf = ConnectionConfig(
     MAIL_USERNAME=settings.MAIL_USERNAME,
@@ -13,15 +17,19 @@ conf = ConnectionConfig(
 
 
 async def send_verification_email(email: str, token: str):
-    verification_link = f"{settings.DOMAIN}/api/v1/auth/verify-email?token={token}"
-    html_content = f"""<p>Пожалуйста, подтвердите свой адрес электронной почты, перейдя по этой ссылке: <a href=\"{verification_link}\">Подтвердить почту</a></p>"""
-    print(html_content)
-    # message = MessageSchema(
-    #     subject="Подтверждение электронной почты",
-    #     recipients=[email],
-    #     html=html_content,
-    #     subtype="html",
-    # )
-    #
-    # fm = FastMail(conf)
-    # await fm.send_message(message)
+    try:
+        verification_link = f"{settings.DOMAIN}/api/v1/auth/verify-email?token={token}"
+        html_content = f"""<p>Пожалуйста, подтвердите свой адрес электронной почты, перейдя по этой ссылке: <a href="{verification_link}">Подтвердить почту</a></p>"""
+        log.info(html_content)
+
+        message = MessageSchema(
+            subject="Подтверждение электронной почты",
+            recipients=[email],
+            body=html_content,
+            subtype=MessageType.html,
+        )
+
+        fm = FastMail(conf)
+        await fm.send_message(message)
+    except Exception as e:
+        log.error(f"Error sending email: {e}", exc_info=True)

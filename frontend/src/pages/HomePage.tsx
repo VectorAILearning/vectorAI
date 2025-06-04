@@ -17,21 +17,10 @@ export default function HomePage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [wsTimestamp, setWsTimestamp] = useState(Date.now());
-  const [curses, setCurses] = useState([]);
   const navigate = useNavigate();
   const chatRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const seenRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    const apiHost = import.meta.env.VITE_API_HOST;
-
-    fetch(`${apiHost}/api/v1/user-courses`)
-      .then((res) => res.json())
-      .then((data) => {
-        setCurses(data);
-      });
-  }, []);
 
   const addIfNew = useCallback((msg: Message) => {
     setMessages((prev) => {
@@ -313,7 +302,7 @@ export default function HomePage() {
           {status === "course_created" && (
             <button
               className="btn btn-primary mt-4"
-              onClick={() => navigate(`/course/${curses[0].id}`)}
+              onClick={() => navigate("/course")}
             >
               Получить курс
             </button>

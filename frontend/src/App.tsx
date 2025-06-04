@@ -8,6 +8,7 @@ import RegisterPage from "./pages/RegisterPage";
 import MainLayout from "./pages/MainLayout.tsx";
 import UserProfilePage from "./pages/UserProfilePage.tsx";
 import LessonsPage from "./pages/LessonsPage.tsx";
+import CourseRedirectPage from "./pages/CourseRedirectPage.tsx";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="/" element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/course" element={<CourseRedirectPage />} />
           <Route path="/course/:courseId" element={<CoursesPage />} />
           <Route
             path="/course/:courseId/lesson/:lessonId"

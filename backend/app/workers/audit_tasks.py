@@ -1,4 +1,3 @@
-# workers/pipeline.py
 import logging
 import time
 import uuid
@@ -23,7 +22,7 @@ def _msg(who: str, text: str, type_: str = "chat") -> dict:
     }
 
 
-async def create_learning_task(_, sid: str, history: str):
+async def create_learning_task(ctx, sid: str, history: str):
     """
     ARQ job: на базе истории аудита создать предпочтение пользователя и курс.
     Весь цикл работает с БД через безопасные контексты, поэтому
@@ -69,21 +68,37 @@ async def create_learning_task(_, sid: str, history: str):
             }
             await redis.add_generated_course(sid, course_data)
 
-            # Генерируем контент для первого урока первого модуля
             first_lesson = None
             if course.modules and len(course.modules) > 0:
                 first_module = course.modules[0]
                 if first_module.lessons and len(first_module.lessons) > 0:
                     first_lesson = first_module.lessons[0]
+
             if first_lesson:
                 await push_and_publish(
-                    sid, _msg("bot", f"Генерируем контент для первого урока курса…")
+                    sid, _msg("bot", "Генерируем план для первого урока курса…")
                 )
-                await LearningService(uow).generate_and_save_lesson_content(
-                    first_lesson, user_pref.summary
-                )
+                content_list = await LearningService(
+                    uow
+                ).generate_and_save_lesson_content_plan(first_lesson, user_pref.summary)
                 await push_and_publish(
-                    sid, _msg("bot", f"Контент для первого урока сгенерирован!")
+                    sid, _msg("bot", "План первого урока сгенерирован!")
+                )
+
+                await push_and_publish(
+                    sid, _msg("bot", "Генерируем контент для первого урока курса…")
+                )
+                if content_list:
+                    first_block = min(content_list, key=lambda b: b.position)
+                    await ctx["arq_queue"].enqueue_job(
+                        "generate_block_content",
+                        block_id=str(first_block.id),
+                        lesson_id=str(first_lesson.id),
+                        _queue_name="course_generation",
+                    )
+                await push_and_publish(
+                    sid,
+                    _msg("bot", "Контент первого урока будет сгенерирован поэтапно!"),
                 )
 
             await push_and_publish(
@@ -97,5 +112,15 @@ async def create_learning_task(_, sid: str, history: str):
             await redis.set_session_status(sid, "course_created")
 
             log.info("pipeline done %s", sid)
+    except Exception as e:
+        log.exception(f"Ошибка при генерации курса для sid={sid}: {e}")
+        await push_and_publish(
+            sid,
+            _msg("bot", f"Произошла ошибка при создании курса: {str(e)}", "error"),
+        )
+        await push_and_publish(
+            sid,
+            _msg("system", "Ошибка при создании курса", "course_creation_error"),
+        )
     finally:
         await redis.clear_course_generation_in_progress(sid)

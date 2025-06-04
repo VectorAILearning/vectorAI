@@ -1,9 +1,9 @@
 from agents.base_agent import BaseAgent
 from core.config import openai_settings
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from .prompts import SYSTEM_PROMPT
+from .prompts import HUMAN_PROMPT, SYSTEM_PROMPT
 
 
 class AuditAgent(BaseAgent):
@@ -13,18 +13,14 @@ class AuditAgent(BaseAgent):
             model=openai_settings.OPENAI_MODEL_AUDIT,
             temperature=openai_settings.OPENAI_TEMPERATURE_AUDIT,
         )
-        super().__init__(llm=llm)
         self.max_questions = openai_settings.AUDIT_MAX_QUESTIONS
-
-    def get_system_message(self):
-        return SystemMessage(content=SYSTEM_PROMPT.format(n=self.max_questions))
-
-    def get_human_message(self, prompt: str):
-        return HumanMessage(content=prompt)
-
-    def call_llm(self, prompt: str) -> str:
-        messages = [self.get_system_message(), self.get_human_message(prompt)]
-        return self.llm.invoke(messages).content
+        prompt_template = ChatPromptTemplate.from_messages(
+            [
+                ("system", SYSTEM_PROMPT.format(n=self.max_questions)),
+                ("human", HUMAN_PROMPT),
+            ]
+        )
+        super().__init__(llm=llm, prompt_template=prompt_template)
 
     @staticmethod
     def get_initial_question(client_prompt: str) -> str:
@@ -45,4 +41,4 @@ class AuditAgent(BaseAgent):
             f"История вопросов и ответов:\n{history}\n"
             "Сделай краткое, но информативное описание пользователя, его цели, уровня и мотивации в одном абзаце для персонализации онлайн-курса. "
         )
-        return self.call_llm(prompt)
+        return self.call_llm({"prompt": prompt})

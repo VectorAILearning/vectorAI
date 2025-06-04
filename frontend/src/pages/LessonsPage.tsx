@@ -23,6 +23,10 @@ export default function LessonsPage() {
       .then((res) => res.json())
       .then((data) => {
         setCourses(data);
+        if (data.length === 0) {
+          navigate(`/`, { replace: true });
+          return;
+        }
         const currentCourse = data.find(
           (course: any) => course.id === courseId,
         );
@@ -30,21 +34,46 @@ export default function LessonsPage() {
       })
       .catch((e) => console.log(e))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [courseId, navigate]);
 
   useEffect(() => {
+    if (!courseId || !lessonId) return;
     const apiHost = import.meta.env.VITE_API_HOST;
     fetch(`${apiHost}/api/v1/course/${courseId}/lesson/${lessonId}`)
       .then((res: any) => {
+        if (!res.ok) throw new Error("Lesson not found");
         setStatusCode(res.status);
         return res.json();
       })
       .then((data) => {
         setSelectedLessons(data);
       })
-
-  }, []);
-
+      .catch(() => {
+        const getFirstValidLesson = async () => {
+          const apiHost = import.meta.env.VITE_API_HOST;
+          const res = await fetch(`${apiHost}/api/v1/user-courses`);
+          const data = await res.json();
+          if (data.length === 0) {
+            navigate(`/`, { replace: true });
+            return;
+          }
+          const firstCourse = data[0];
+          const modules = firstCourse.modules || [];
+          const firstModule = modules[0];
+          const lessons =
+            firstModule && firstModule.lessons ? firstModule.lessons : [];
+          const firstLesson = lessons[0];
+          if (firstModule && firstLesson) {
+            navigate(`/course/${firstCourse.id}/lesson/${firstLesson.id}`, {
+              replace: true,
+            });
+          } else {
+            navigate(`/course/${firstCourse.id}`, { replace: true });
+          }
+        };
+        getFirstValidLesson();
+      });
+  }, [courseId, lessonId, navigate]);
 
   const getLessonId = (lessonId: any) => {
     const apiHost = import.meta.env.VITE_API_HOST;
