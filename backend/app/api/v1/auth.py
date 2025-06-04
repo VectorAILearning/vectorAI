@@ -97,4 +97,3 @@ async def verify_email(token: str, uow: UnitOfWork = Depends(get_uow)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка сервера"
         )
-
