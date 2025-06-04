@@ -52,6 +52,7 @@ class LearningRepository:
             description=course_in.description,
             goal=course_in.goal,
             estimated_time_hours=course_in.estimated_time_hours,
+            status=getattr(course_in, "status", "draft"),
             user_id=uuid.UUID(user_id) if user_id else None,
             session_id=uuid.UUID(session_id) if session_id else None,
             modules=[
@@ -60,14 +61,18 @@ class LearningRepository:
                     description=mod.description,
                     estimated_time_hours=mod.estimated_time_hours,
                     goal=mod.goal,
+                    position=mod.position,
+                    status=getattr(mod, "status", "draft"),
                     lessons=[
                         LessonModel(
                             title=les.title,
                             goal=les.goal,
+                            position=les.position,
                             description=(
                                 les.description
                             ),
                             estimated_time_hours=les.estimated_time_hours,
+                            status=getattr(les, "status", "draft"),
                         )
                         for les in mod.lessons
                     ],

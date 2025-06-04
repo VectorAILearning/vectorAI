@@ -52,17 +52,18 @@ class LearningService:
 
     async def generate_and_save_lesson_content_plan(
         self, lesson: LessonModel, user_preferences: str = ""
-    ):
+    ) -> list[ContentModel]:
         course_dict = CourseOut.model_validate(lesson.module.course).model_dump()
-        agent = LessonPlanAgent()
-        content_plan = agent.generate_lesson_content_plan(
+        content_plan = LessonPlanAgent().generate_lesson_content_plan(
             lesson_description=f"{lesson.title}. {lesson.description}. Цель: {lesson.goal}",
             user_preferences=user_preferences,
             course_structure_json=json.dumps(course_dict, ensure_ascii=False, default=str),
         )
         if not isinstance(content_plan, list):
             raise ValueError(f"Генерация вернула не список блоков. Ответ: {content_plan}")
-
+        
+        content_list = []
+        
         for block in content_plan:
             try:
                 content_obj = ContentOut.model_validate(block)
@@ -77,5 +78,9 @@ class LearningService:
                 position=content_obj.position,
             )
             self.uow.session.add(db_content)
+            content_list.append(db_content)
+        
         await self.uow.session.commit()
-        return content_plan
+        for db_content in content_list:
+            await self.uow.session.refresh(db_content)
+        return content_list

@@ -1,4 +1,3 @@
-# workers/pipeline.py
 import logging
 import time
 import uuid
@@ -9,6 +8,7 @@ from services.learning_service.service import LearningService
 from services.message_bus import push_and_publish
 from services.redis_cache_service import RedisCacheService
 from utils.uow import uow_context
+
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def _msg(who: str, text: str, type_: str = "chat") -> dict:
     }
 
 
-async def create_learning_task(_, sid: str, history: str):
+async def create_learning_task(ctx, sid: str, history: str):
     """
     ARQ job: на базе истории аудита создать предпочтение пользователя и курс.
     Весь цикл работает с БД через безопасные контексты, поэтому
@@ -77,13 +77,28 @@ async def create_learning_task(_, sid: str, history: str):
 
             if first_lesson:
                 await push_and_publish(
-                    sid, _msg("bot", f"Генерируем план для первого урока курса…")
+                    sid, _msg("bot", "Генерируем план для первого урока курса…")
                 )
-                await LearningService(uow).generate_and_save_lesson_content_plan(
+                content_list = await LearningService(uow).generate_and_save_lesson_content_plan(
                     first_lesson, user_pref.summary
                 )
                 await push_and_publish(
-                    sid, _msg("bot", f"Контент для первого урока сгенерирован!")
+                    sid, _msg("bot", "План первого урока сгенерирован!")
+                )
+
+                await push_and_publish(
+                    sid, _msg("bot", "Генерируем контент для первого урока курса…")
+                )
+                if content_list:
+                    first_block = min(content_list, key=lambda b: b.position)
+                    await ctx['arq_queue'].enqueue_job(
+                        'generate_block_content',
+                        block_id=str(first_block.id),
+                        lesson_id=str(first_lesson.id),
+                        _queue_name='course_generation'
+                    )
+                await push_and_publish(
+                    sid, _msg("bot", "Контент первого урока будет сгенерирован поэтапно!")
                 )
 
             await push_and_publish(

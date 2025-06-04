@@ -124,7 +124,7 @@ class AuditDialogService:
 
         history_full = self._history_str(q, a, first_user["text"])
         await ws.app.state.arq_pool.enqueue_job(
-            "create_learning_task", sid, history_full
+            "create_learning_task", sid, history_full, _queue_name="course_generation"
         )
 
     async def create_user_preference_by_audit_history(
