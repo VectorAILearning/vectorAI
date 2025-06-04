@@ -22,7 +22,6 @@ class LessonIn(BaseModel):
     goal: str = Field(default=None, max_length=1000)
     estimated_time_hours: float = 3
     position: int
-    status: str = "draft"
 
 
 class ModuleIn(BaseModel):
@@ -32,7 +31,6 @@ class ModuleIn(BaseModel):
     estimated_time_hours: float = 15
     lessons: List[LessonIn] = []
     position: int
-    status: str = "draft"
 
 
 class CourseIn(BaseModel):
@@ -41,7 +39,6 @@ class CourseIn(BaseModel):
     description: str = Field(default=None, max_length=255)
     estimated_time_hours: float = 60
     modules: List[ModuleIn] = []
-    status: str = "draft"
 
 
 class CourseUpdate(BaseModel):
@@ -60,7 +57,6 @@ class LessonOut(BaseModel):
     goal: Optional[str] = None
     estimated_time_hours: float
     is_completed: bool
-    status: str = "draft"
     contents: list[ContentOut] = []
     position: int
 
@@ -75,7 +71,6 @@ class ModuleOut(BaseModel):
     goal: Optional[str] = None
     estimated_time_hours: float
     is_completed: bool
-    status: str = "draft"
     lessons: list[LessonOut] = []
     position: int
 
@@ -90,7 +85,6 @@ class CourseOut(BaseModel):
     goal: Optional[str] = None
     estimated_time_hours: float
     is_completed: bool
-    status: str = "draft"
     modules: list[ModuleOut] = []
 
     class Config:
