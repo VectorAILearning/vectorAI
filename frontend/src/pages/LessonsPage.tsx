@@ -21,6 +21,10 @@ export default function LessonsPage() {
       .then((res) => res.json())
       .then((data) => {
         setCourses(data);
+        if (data.length === 0) {
+          navigate(`/`, { replace: true });
+          return;
+        }
         const currentCourse = data.find(
           (course: any) => course.id === courseId,
         );
@@ -28,19 +32,46 @@ export default function LessonsPage() {
       })
       .catch((e) => console.log(e))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [courseId, navigate]);
 
   useEffect(() => {
+    if (!courseId || !lessonId) return;
     const apiHost = import.meta.env.VITE_API_HOST;
     fetch(`${apiHost}/api/v1/course/${courseId}/lesson/${lessonId}`)
       .then((res: any) => {
+        if (!res.ok) throw new Error("Lesson not found");
         setStatusCode(res.status);
         return res.json();
       })
       .then((data) => {
         setSelectedLessons(data);
+      })
+      .catch(() => {
+        const getFirstValidLesson = async () => {
+          const apiHost = import.meta.env.VITE_API_HOST;
+          const res = await fetch(`${apiHost}/api/v1/user-courses`);
+          const data = await res.json();
+          if (data.length === 0) {
+            navigate(`/`, { replace: true });
+            return;
+          }
+          const firstCourse = data[0];
+          const modules = firstCourse.modules || [];
+          const firstModule = modules[0];
+          const lessons =
+            firstModule && firstModule.lessons ? firstModule.lessons : [];
+          const firstLesson = lessons[0];
+          if (firstModule && firstLesson) {
+            navigate(`/course/${firstCourse.id}/lesson/${firstLesson.id}`, {
+              replace: true,
+            });
+          } else {
+            navigate(`/course/${firstCourse.id}`, { replace: true });
+          }
+        };
+        getFirstValidLesson();
       });
-  }, []);
+  }, [courseId, lessonId, navigate]);
 
   const getLessonId = (lessonId: any) => {
     const apiHost = import.meta.env.VITE_API_HOST;
@@ -215,19 +246,25 @@ export default function LessonsPage() {
         style={{ maxHeight: "90vh" }}
       >
         <div className="max-w-3xl w-full p-8">
-            <>
-              <h1 className="text-3xl font-bold mb-4 text-center">
-                {selectedLessons?.title || selectedLessons?.detail}
-              </h1>
-              <p className="mb-8 text-base text-base-content/80 text-center">
-                {selectedLessons?.description}
-              </p>
-              {selectedLessons?.contents && selectedLessons.contents.length > 0 && (
+          <>
+            <h1 className="text-3xl font-bold mb-4 text-center">
+              {selectedLessons?.title || selectedLessons?.detail}
+            </h1>
+            <p className="mb-8 text-base text-base-content/80 text-center">
+              {selectedLessons?.description}
+            </p>
+            {selectedLessons?.contents &&
+              selectedLessons.contents.length > 0 && (
                 <div className="mt-8">
-                  <h2 className="text-2xl font-semibold mb-4 text-center">Контент урока</h2>
+                  <h2 className="text-2xl font-semibold mb-4 text-center">
+                    Контент урока
+                  </h2>
                   <ul className="space-y-4">
                     {selectedLessons.contents.map((block: any, idx: number) => (
-                      <li key={block.id || idx} className="p-4 rounded bg-base-200">
+                      <li
+                        key={block.id || idx}
+                        className="p-4 rounded bg-base-200"
+                      >
                         <div className="font-bold mb-1">
                           {block.position}. {block.type.toUpperCase()}
                         </div>
@@ -236,7 +273,9 @@ export default function LessonsPage() {
                         )}
                         {block.type === "video" && (
                           <div>
-                            <div className="font-semibold">{block.content.title}</div>
+                            <div className="font-semibold">
+                              {block.content.title}
+                            </div>
                             <div>{block.content.description}</div>
                             {block.content.url && (
                               <a
@@ -252,33 +291,45 @@ export default function LessonsPage() {
                         )}
                         {block.type === "dialog" && (
                           <div>
-                            {block.content.dialog?.map((rep: any, i: number) => (
-                              <div key={i}>
-                                <span className="font-semibold">{rep.role}:</span> {rep.text}
-                              </div>
-                            ))}
+                            {block.content.dialog?.map(
+                              (rep: any, i: number) => (
+                                <div key={i}>
+                                  <span className="font-semibold">
+                                    {rep.role}:
+                                  </span>{" "}
+                                  {rep.text}
+                                </div>
+                              ),
+                            )}
                           </div>
                         )}
                         {block.type === "open_answer" && (
                           <div>
-                            <span className="font-semibold">Задание:</span> {block.content.question}
+                            <span className="font-semibold">Задание:</span>{" "}
+                            {block.content.question}
                           </div>
                         )}
                         {block.type === "reflection" && (
                           <div>
-                            <span className="font-semibold">Рефлексия:</span> {block.content.prompt}
+                            <span className="font-semibold">Рефлексия:</span>{" "}
+                            {block.content.prompt}
                           </div>
                         )}
                         {block.type === "test" && (
                           <div>
-                            <div className="font-semibold">{block.content.question}</div>
+                            <div className="font-semibold">
+                              {block.content.question}
+                            </div>
                             <ul className="list-disc ml-6">
-                              {block.content.options?.map((opt: string, i: number) => (
-                                <li key={i}>{opt}</li>
-                              ))}
+                              {block.content.options?.map(
+                                (opt: string, i: number) => (
+                                  <li key={i}>{opt}</li>
+                                ),
+                              )}
                             </ul>
                             <div className="text-xs text-base-content/60 mt-1">
-                              <span className="font-semibold">Ответ:</span> {block.content.answer}
+                              <span className="font-semibold">Ответ:</span>{" "}
+                              {block.content.answer}
                             </div>
                           </div>
                         )}
@@ -287,7 +338,7 @@ export default function LessonsPage() {
                   </ul>
                 </div>
               )}
-            </>
+          </>
         </div>
       </main>
     </div>
