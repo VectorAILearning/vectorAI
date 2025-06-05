@@ -17,24 +17,29 @@ class ChatMessage(BaseModel):
     ts: float = Field(default_factory=lambda: time.time())
 
 
-async def push_and_publish(session_id: str, msg: dict | ChatMessage) -> ChatMessage:
+async def push_and_publish(
+    msg: dict | ChatMessage, session_id: str | None = None
+) -> ChatMessage | None:
     """
     Сохраняем сообщение в Redis-историю.
     Публикуем его в канал broadcaster.
     Возвращаем нормализованный ChatMessage (можно использовать дальше).
+    Если session_id не передан, то сообщение не сохраняется в Redis-историю и не публикуется в канал broadcaster.
     """
-    if isinstance(msg, dict):
-        msg_obj = ChatMessage(**msg)
-    else:
-        msg_obj = msg
+    if session_id:
+        if isinstance(msg, dict):
+            msg_obj = ChatMessage(**msg)
+        else:
+            msg_obj = msg
 
-    data = msg_obj.model_dump()
+        data = msg_obj.model_dump()
 
-    await redis.add_message(session_id, data)
+        await redis.add_message(session_id, data)
 
-    await broadcaster.publish(
-        f"chat_{session_id}",
-        json.dumps(data, ensure_ascii=False),
-    )
+        await broadcaster.publish(
+            f"chat_{session_id}",
+            json.dumps(data, ensure_ascii=False),
+        )
 
-    return msg_obj
+        return msg_obj
+    return None

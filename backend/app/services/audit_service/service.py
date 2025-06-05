@@ -4,10 +4,13 @@ import uuid
 
 from agents.audit_agent.agent import AuditAgent
 from models import PreferenceModel
+from models.task import TaskTypeEnum
 from services import RedisCacheService, get_cache_service
 from services.message_bus import push_and_publish
+from workers.generate_tasks.audit_tasks import _msg
 from starlette.websockets import WebSocket
 from utils.uow import UnitOfWork
+from workers.generate_tasks.generate_tasks import GenerateDeepEnum
 
 
 class AuditDialogService:
@@ -72,16 +75,7 @@ class AuditDialogService:
             ask = self.agent.call_llm(
                 {"prompt": self.agent.get_initial_question(first_user.get("text"))}
             )
-            await push_and_publish(
-                sid,
-                {
-                    "id": str(uuid.uuid4()),
-                    "ts": time.time(),
-                    "who": "bot",
-                    "type": "chat",
-                    "text": ask,
-                },
-            )
+            await push_and_publish(_msg("bot", ask), sid)
             q.append(ask)
 
         for step in range(len(a) + 1, self.agent.max_questions + 1):
@@ -104,37 +98,33 @@ class AuditDialogService:
                     )
                 }
             )
-            await push_and_publish(
-                sid,
-                {
-                    "id": str(uuid.uuid4()),
-                    "ts": time.time(),
-                    "who": "bot",
-                    "type": "chat",
-                    "text": ask,
-                },
-            )
+            await push_and_publish(_msg("bot", ask), sid)
             q.append(ask)
 
         await self.cache_service.set_session_status(sid, "course_creating")
         await push_and_publish(
+            _msg(
+                "system",
+                "Аудит завершён. Сейчас начнётся подготовка профиля и курса.",
+                "course_created_start",
+            ),
             sid,
-            {
-                "id": str(uuid.uuid4()),
-                "ts": time.time(),
-                "who": "system",
-                "type": "course_created_start",
-                "text": "Аудит завершён. Сейчас начнётся подготовка профиля и курса.",
-            },
         )
 
         history_full = self._history_str(q, a, first_user["text"])
         await ws.app.state.arq_pool.enqueue_job(
-            "create_learning_task", sid, history_full, _queue_name="course_generation"
+            "generate",
+            _queue_name="course_generation",
+            task_type=TaskTypeEnum.generate_course,
+            audit_history=history_full,
+            sid=sid,
+            deep=GenerateDeepEnum.first_lesson.value,
         )
 
     async def create_user_preference_by_audit_history(
-        self, audit_history: str, sid: str
+        self, audit_history: str, sid: str | None = None, user_id: str | None = None
     ) -> PreferenceModel:
         summary = self.agent.summarize_profile_prompt(audit_history)
-        return await self.uow.audit_repo.create_user_preference(summary, sid=sid)
+        return await self.uow.audit_repo.create_user_preference(
+            summary, sid=sid, user_id=user_id
+        )

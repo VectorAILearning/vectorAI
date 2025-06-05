@@ -6,7 +6,7 @@ from langchain_openai import ChatOpenAI
 from .prompts import HUMAN_PROMPT, SYSTEM_PROMPT
 
 
-class ContentAgent(BaseAgent):
+class ContentPlanAgent(BaseAgent):
     def __init__(self):
         llm = ChatOpenAI(
             api_key=openai_settings.OPENAI_API_KEY,

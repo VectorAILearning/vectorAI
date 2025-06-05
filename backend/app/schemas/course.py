@@ -36,14 +36,14 @@ class ModuleIn(BaseModel):
 class CourseIn(BaseModel):
     title: str = Field(default=None, max_length=255)
     goal: str = Field(default=None, max_length=1000)
-    description: str = Field(default=None, max_length=255)
+    description: str = Field(default=None, max_length=1000)
     estimated_time_hours: float = 60
     modules: List[ModuleIn] = []
 
 
 class CourseUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=255)
-    description: str | None = Field(default=None, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
     estimated_time_hours: float | None = None
     is_completed: bool | None = None
     user_id: uuid.UUID | None = None
