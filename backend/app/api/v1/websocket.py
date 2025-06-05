@@ -31,7 +31,7 @@ async def pipe_broadcast(ws: WebSocket, channel: str, sid: str):
 @router.websocket("/ws/audit")
 async def audit_websocket(ws: WebSocket, session_id: str = Query(...)):
     from services.audit_service.service import AuditDialogService
-    
+
     old_ws = ws.app.state.ws_by_sid.get(session_id)
     if (
         old_ws

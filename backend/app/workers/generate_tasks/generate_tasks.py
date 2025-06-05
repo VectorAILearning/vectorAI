@@ -1,12 +1,13 @@
 import enum
+import logging
 
 from models.task import TaskTypeEnum
 from schemas.task import TaskIn, TaskOut
 from services.task_service.service import TaskService
 from utils.uow import uow_context
-import logging
-    
+
 log = logging.getLogger(__name__)
+
 
 class GenerateDeepEnum(enum.Enum):
     user_summary = "user_summary"
@@ -31,7 +32,10 @@ async def generate(ctx, task_type: str, **kwargs) -> TaskOut:
         "params": kwargs,
     }
 
-    if task_type == TaskTypeEnum.generate_user_summary and kwargs.get("deep") != GenerateDeepEnum.user_summary.value:
+    if (
+        task_type == TaskTypeEnum.generate_user_summary
+        and kwargs.get("deep") != GenerateDeepEnum.user_summary.value
+    ):
         audit_history = kwargs.get("audit_history")
         if not audit_history:
             log.error(f"Task with type generate_user_summary requires audit_history")
@@ -43,7 +47,10 @@ async def generate(ctx, task_type: str, **kwargs) -> TaskOut:
             _queue_name="course_generation",
         )
 
-    elif task_type == TaskTypeEnum.generate_course and kwargs.get("deep") != GenerateDeepEnum.course.value:
+    elif (
+        task_type == TaskTypeEnum.generate_course
+        and kwargs.get("deep") != GenerateDeepEnum.course.value
+    ):
         audit_history = kwargs.get("audit_history")
         if not audit_history:
             log.error(f"Task with type generate_user_summary requires audit_history")
@@ -54,8 +61,11 @@ async def generate(ctx, task_type: str, **kwargs) -> TaskOut:
             generate_tasks_context=generate_tasks_context,
             _queue_name="course_generation",
         )
-    
-    elif task_type == TaskTypeEnum.generate_course and kwargs.get("deep") == GenerateDeepEnum.course.value:
+
+    elif (
+        task_type == TaskTypeEnum.generate_course
+        and kwargs.get("deep") == GenerateDeepEnum.course.value
+    ):
         user_pref = kwargs.get("user_pref")
         if not user_pref:
             log.error(f"Task with type generate_course requires user_pref")

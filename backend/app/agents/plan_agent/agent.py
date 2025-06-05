@@ -1,5 +1,5 @@
 from agents.base_agent import BaseAgent
-from core.config import openai_settings, generation_settings
+from core.config import generation_settings, openai_settings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 

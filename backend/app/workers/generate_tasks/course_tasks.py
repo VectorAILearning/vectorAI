@@ -5,10 +5,10 @@ from models.course import CourseModel
 from models.task import TaskTypeEnum
 from schemas.course import CourseOut
 from schemas.task import TaskIn
+from services import get_cache_service
 from services.learning_service.service import LearningService
 from services.message_bus import push_and_publish
 from services.task_service.service import TaskService
-from services import get_cache_service
 from utils.uow import uow_context
 from workers.generate_tasks.audit_tasks import _msg
 from workers.generate_tasks.generate_tasks import GenerateDeepEnum
@@ -48,7 +48,9 @@ async def generate_course_by_user_preference(
             )
             generate_tasks_context["parent_task_id"] = ctx["job_id"]
 
-            await push_and_publish(_msg("bot", "Генерируем для вас индивидуальный курс…"), sid)
+            await push_and_publish(
+                _msg("bot", "Генерируем для вас индивидуальный курс…"), sid
+            )
             log.debug(
                 f"[generate_course] Вызов create_course_by_user_preference для sid={sid}, user_id={user_id}"
             )
@@ -79,7 +81,7 @@ async def generate_course_by_user_preference(
         log.info(f"generate_tasks_context: {generate_tasks_context}")
         log.info(f"generate_params: {generate_params}")
         if generate_tasks_context["task_type"] == TaskTypeEnum.generate_course.value:
-            
+
             if generate_params.get("deep") != GenerateDeepEnum.user_summary.value:
                 log.info(
                     f"[generate_course] Запуск генерации плана модулей для course_id={course.id}"

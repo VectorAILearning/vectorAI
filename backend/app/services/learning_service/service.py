@@ -12,7 +12,6 @@ from schemas import CourseUpdate, PreferenceUpdate
 from schemas.course import ContentOut, CourseOut, ModuleOut
 from utils.uow import UnitOfWork
 
-
 log = logging.getLogger(__name__)
 
 

@@ -1,9 +1,9 @@
 import logging
 
-from services import get_cache_service
 from models.course import ModuleModel
 from models.task import TaskTypeEnum
 from schemas.task import TaskIn
+from services import get_cache_service
 from services.learning_service.service import LearningService
 from services.message_bus import push_and_publish
 from services.task_service.service import TaskService
@@ -64,18 +64,27 @@ async def generate_module_plan(
 
         return modules
     except Exception as e:
-        log.exception(f"[generate_module_plan] Ошибка при генерации плана модулей для sid={sid}: {e}")
+        log.exception(
+            f"[generate_module_plan] Ошибка при генерации плана модулей для sid={sid}: {e}"
+        )
         await push_and_publish(
-            _msg("bot", f"Произошла ошибка при создании плана модулей: {str(e)}", "error"),
+            _msg(
+                "bot", f"Произошла ошибка при создании плана модулей: {str(e)}", "error"
+            ),
             sid,
         )
         await push_and_publish(
-            _msg("system", "Ошибка при создании плана модулей", "module_plan_creation_error"),
+            _msg(
+                "system",
+                "Ошибка при создании плана модулей",
+                "module_plan_creation_error",
+            ),
             sid,
         )
         if sid:
             await redis.clear_course_generation_in_progress(sid)
         raise
+
 
 async def generate_module(
     ctx, module_id: str, user_pref_summary: str, generate_tasks_context: dict
@@ -110,14 +119,25 @@ async def generate_module(
             generate_tasks_context["parent_task_id"] = ctx["job_id"]
             module = await LearningService(uow).get_module_by_id(module_id)
 
-            await push_and_publish(_msg("bot", f"Генерируем план уроков для модуля {module.title}…"), sid)
+            await push_and_publish(
+                _msg("bot", f"Генерируем план уроков для модуля {module.title}…"), sid
+            )
 
-            lessons = await LearningService(uow).create_lessons_plan_by_module_id(module_id, user_pref_summary)
+            lessons = await LearningService(uow).create_lessons_plan_by_module_id(
+                module_id, user_pref_summary
+            )
 
-            log.info(f"[generate_module] План уроков для модуля {module.title} сгенерирован")
-            await push_and_publish(_msg("bot", f"План уроков для модуля {module.title} сгенерирован!"), sid)
+            log.info(
+                f"[generate_module] План уроков для модуля {module.title} сгенерирован"
+            )
+            await push_and_publish(
+                _msg("bot", f"План уроков для модуля {module.title} сгенерирован!"), sid
+            )
 
-            if generate_tasks_context["task_type"] == TaskTypeEnum.generate_course.value:
+            if (
+                generate_tasks_context["task_type"]
+                == TaskTypeEnum.generate_course.value
+            ):
                 if generate_params.get("deep") != GenerateDeepEnum.module.value:
                     next_module = await uow.session.execute(
                         select(ModuleModel)
@@ -148,8 +168,10 @@ async def generate_module(
                             .limit(1)
                         )
                         first_module = first_module.scalar_one_or_none()
-                        first_lesson = min(first_module.lessons, key=lambda l: l.position)
-                        await ctx["arq_queue"].enqueue_job( 
+                        first_lesson = min(
+                            first_module.lessons, key=lambda l: l.position
+                        )
+                        await ctx["arq_queue"].enqueue_job(
                             "generate_lesson_plan",
                             str(first_lesson.id),
                             user_pref_summary,
@@ -158,7 +180,9 @@ async def generate_module(
                         )
             return lessons
     except Exception as e:
-        log.exception(f"[generate_module] Ошибка при генерации модуля для sid={sid}: {e}")
+        log.exception(
+            f"[generate_module] Ошибка при генерации модуля для sid={sid}: {e}"
+        )
         await push_and_publish(
             _msg("bot", f"Произошла ошибка при создании модуля: {str(e)}", "error"),
             sid,

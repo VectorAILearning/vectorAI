@@ -7,9 +7,9 @@ from models import PreferenceModel
 from models.task import TaskTypeEnum
 from services import RedisCacheService, get_cache_service
 from services.message_bus import push_and_publish
-from workers.generate_tasks.audit_tasks import _msg
 from starlette.websockets import WebSocket
 from utils.uow import UnitOfWork
+from workers.generate_tasks.audit_tasks import _msg
 from workers.generate_tasks.generate_tasks import GenerateDeepEnum
 
 

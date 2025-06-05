@@ -50,7 +50,7 @@ class BaseAgent(ABC):
                 prompt = prompt.format_messages(**input_data)
             else:
                 prompt = self.prompt_template.format_messages(**input_data)
-            
+
             logger.info(f"Prompt: {prompt}")
             result = self.llm.invoke(prompt).content
             clear_result = self.remove_surrogates(result)

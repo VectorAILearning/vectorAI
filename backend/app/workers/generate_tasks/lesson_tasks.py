@@ -4,15 +4,15 @@ from models.content import ContentModel
 from models.course import LessonModel, ModuleModel
 from models.task import TaskTypeEnum
 from schemas.task import TaskIn
+from services import get_cache_service
 from services.learning_service.service import LearningService
 from services.message_bus import push_and_publish
 from services.task_service.service import TaskService
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from utils.uow import uow_context
 from workers.generate_tasks.audit_tasks import _msg
 from workers.generate_tasks.generate_tasks import GenerateDeepEnum
-from services import get_cache_service
-from sqlalchemy.orm import selectinload
 
 log = logging.getLogger(__name__)
 
@@ -54,15 +54,19 @@ async def generate_lesson_plan(
             log.info(
                 f"[generate_lesson_plan] Генерация контент-плана для урока {lesson_id}"
             )
-            await push_and_publish(_msg("bot", f"Генерируем контент-план для урока {lesson.title}…"), sid)
-            content_list = await LearningService(uow).generate_and_save_lesson_content_plan(
-                lesson_id, user_pref_summary
+            await push_and_publish(
+                _msg("bot", f"Генерируем контент-план для урока {lesson.title}…"), sid
             )
+            content_list = await LearningService(
+                uow
+            ).generate_and_save_lesson_content_plan(lesson_id, user_pref_summary)
             log.info(
                 f"[generate_lesson_plan] Контент-план для урока {lesson_id} сгенерирован"
             )
 
-            await push_and_publish(_msg("bot", f"Контент-план урока {lesson.title} сгенерирован!"), sid)
+            await push_and_publish(
+                _msg("bot", f"Контент-план урока {lesson.title} сгенерирован!"), sid
+            )
 
         if generate_tasks_context["task_type"] == TaskTypeEnum.generate_course.value:
             if generate_params.get("deep") != GenerateDeepEnum.lesson.value:
@@ -107,14 +111,22 @@ async def generate_lesson_plan(
                     else:
                         first_module = await uow.session.execute(
                             select(ModuleModel)
-                            .options(selectinload(ModuleModel.lessons).selectinload(LessonModel.contents))
+                            .options(
+                                selectinload(ModuleModel.lessons).selectinload(
+                                    LessonModel.contents
+                                )
+                            )
                             .where(ModuleModel.course_id == lesson.module.course_id)
                             .where(ModuleModel.position == 1)
                             .limit(1)
                         )
                         first_module = first_module.scalar_one_or_none()
-                        first_lesson = min(first_module.lessons, key=lambda l: l.position)
-                        first_content_block = min(first_lesson.contents, key=lambda c: c.position)  
+                        first_lesson = min(
+                            first_module.lessons, key=lambda l: l.position
+                        )
+                        first_content_block = min(
+                            first_lesson.contents, key=lambda c: c.position
+                        )
                         await ctx["arq_queue"].enqueue_job(
                             "generate_block_content",
                             content_block_id=str(first_content_block.id),
@@ -130,7 +142,9 @@ async def generate_lesson_plan(
                             await redis.clear_course_generation_in_progress(sid)
         return content_list
     except Exception as e:
-        log.exception(f"[generate_lesson_plan] Ошибка при генерации урока для sid={sid}: {e}")
+        log.exception(
+            f"[generate_lesson_plan] Ошибка при генерации урока для sid={sid}: {e}"
+        )
         await push_and_publish(
             _msg("bot", f"Произошла ошибка при создании урока: {str(e)}", "error"),
             sid,

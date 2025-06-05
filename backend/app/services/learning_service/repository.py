@@ -1,5 +1,5 @@
-import uuid
 import logging
+import uuid
 
 from fastapi import HTTPException
 from models import CourseModel, LessonModel, ModuleModel
@@ -8,7 +8,6 @@ from schemas import CourseIn, CourseUpdate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
-
 
 log = logging.getLogger(__name__)
 

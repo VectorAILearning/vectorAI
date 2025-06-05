@@ -3,13 +3,13 @@ import logging
 from models import ContentModel, CourseModel, LessonModel, ModuleModel
 from models.task import TaskTypeEnum
 from schemas.task import TaskIn
+from services import get_cache_service
 from services.content_service.service import ContentService
 from services.task_service.service import TaskService
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from utils.uow import uow_context
 from workers.generate_tasks.generate_tasks import GenerateDeepEnum
-from services import get_cache_service
 
 log = logging.getLogger(__name__)
 
@@ -80,7 +80,10 @@ async def generate_block_content(
                     await redis.clear_course_generation_in_progress(sid)
                 return
 
-            if generate_tasks_context["task_type"] == TaskTypeEnum.generate_course.value:
+            if (
+                generate_tasks_context["task_type"]
+                == TaskTypeEnum.generate_course.value
+            ):
                 if generate_params.get("deep") != GenerateDeepEnum.lesson.value:
                     next_content_block = await uow.session.execute(
                         select(ContentModel)
@@ -104,7 +107,10 @@ async def generate_block_content(
                             f"Задача на генерацию контента для блока {next_content_block.id} поставлена в очередь"
                         )
                     else:
-                        if generate_params.get("deep") != GenerateDeepEnum.first_lesson.value:
+                        if (
+                            generate_params.get("deep")
+                            != GenerateDeepEnum.first_lesson.value
+                        ):
                             next_lesson = await uow.session.execute(
                                 select(LessonModel)
                                 .where(LessonModel.module_id == lesson.module_id)
@@ -164,13 +170,17 @@ async def generate_block_content(
                                         f"Нет следующего модуля после урока {lesson_id} и блока {content_block_id}, завершаем генерацию курса"
                                     )
                                     if sid:
-                                        await redis.clear_course_generation_in_progress(sid)
+                                        await redis.clear_course_generation_in_progress(
+                                            sid
+                                        )
                         else:
                             if sid:
                                 await redis.clear_course_generation_in_progress(sid)
-                                
+
     except Exception as e:
-        log.exception(f"[generate_block_content] Ошибка при генерации блока для sid={sid}: {e}")
+        log.exception(
+            f"[generate_block_content] Ошибка при генерации блока для sid={sid}: {e}"
+        )
         if sid:
             await redis.clear_course_generation_in_progress(sid)
         raise
