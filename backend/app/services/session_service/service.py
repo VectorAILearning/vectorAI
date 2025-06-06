@@ -38,10 +38,9 @@ class SessionService:
             return str(session_db.id)
 
         if not session_db:
-            if not session_db:
-                session_db = await self.uow.session_repo.create(
-                    SessionCreate(ip=ip, user_agent=user_agent)
-                )
+            session_db = await self.uow.session_repo.create(
+                SessionCreate(ip=ip, user_agent=user_agent)
+            )
 
         if not session_redis:
             await self.cache_service.create_session(

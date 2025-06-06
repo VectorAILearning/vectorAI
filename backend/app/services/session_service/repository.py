@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from models import SessionModel
 from schemas.session import SessionCreate, SessionUpdate
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -28,7 +29,17 @@ class SessionRepository:
     async def create(self, session_data: SessionCreate) -> SessionModel:
         session = SessionModel(**session_data.model_dump())
         self.db.add(session)
-        await self.db.commit()
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+
+            stmt = select(SessionModel).where(
+                SessionModel.ip == session_data.ip,
+                SessionModel.user_agent == session_data.user_agent,
+            )
+            session = (await self.db.execute(stmt)).scalar_one()
+        await self.db.refresh(session)
         return session
 
     async def update(
