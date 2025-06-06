@@ -36,99 +36,80 @@ class AuditDialogService:
             blocks.append(f"Вопрос: {qi}\nОтвет: {ai}")
         return "\n".join(blocks)
 
-    async def send_session_info(self, ws: WebSocket, sid: str) -> None:
-        await ws.send_text(
-            json.dumps(
-                {
-                    "type": "session_info",
-                    "session_id": sid,
-                    "messages": await self.cache_service.get_messages(sid),
-                    "reset_count": await self.cache_service.get_reset_count(sid),
-                }
-            )
-        )
-
     async def get_messages(self, sid: str):
         return await self.cache_service.get_messages(str(sid))
 
     async def run_dialog(self, ws: WebSocket, sid: str):
-        try:
-            stored = await self.get_messages(sid)
+        stored = await self.get_messages(sid)
 
-            q, a = [], []
-            first_user: dict | None = None
+        q, a = [], []
+        first_user: dict | None = None
 
-            for m in stored:
-                if m["who"] == "user" and first_user is None:
-                    first_user = m
-                elif m["who"] == "bot" and m["type"] == "chat":
-                    q.append(m["text"])
-                elif m["who"] == "user" and q:
-                    a.append(m["text"])
+        for m in stored:
+            if m["who"] == "user" and first_user is None:
+                first_user = m
+            elif m["who"] == "bot" and m["type"] == "chat":
+                q.append(m["text"])
+            elif m["who"] == "user" and q:
+                a.append(m["text"])
 
-            if first_user is None:
-                raw = await ws.receive_text()
-                try:
-                    first_user = json.loads(raw)
-                except Exception:
-                    first_user = {"text": raw, "who": "user", "type": "chat"}
-                await self.cache_service.add_message(str(sid), first_user)
+        if first_user is None:
+            raw = await ws.receive_text()
+            try:
+                first_user = json.loads(raw)
+            except Exception:
+                first_user = {"text": raw, "who": "user", "type": "chat"}
+            await self.cache_service.add_message(str(sid), first_user)
 
-            if not q:
-                ask = self.agent.call_llm(
-                    {"prompt": self.agent.get_initial_question(first_user.get("text"))}
-                )
-                await push_and_publish(_msg("bot", ask), sid)
-                q.append(ask)
-
-            for step in range(len(a) + 1, self.agent.max_questions + 1):
-                raw = await ws.receive_text()
-                try:
-                    u_ans = json.loads(raw)
-                except Exception:
-                    u_ans = {"text": raw, "who": "user", "type": "chat"}
-                await self.cache_service.add_message(sid, u_ans)
-                a.append(u_ans["text"])
-
-                if step == self.agent.max_questions:
-                    break
-
-                history = self._history_str(q, a, first_user["text"])
-                ask = self.agent.call_llm(
-                    {
-                        "prompt": self.agent.get_initial_question(
-                            self.agent.next_question_prompt(history)
-                        )
-                    }
-                )
-                await push_and_publish(_msg("bot", ask), sid)
-                q.append(ask)
-
-            await self.cache_service.set_session_status(sid, "course_creating")
-            await push_and_publish(
-                _msg(
-                    "system",
-                    "Аудит завершён. Сейчас начнётся подготовка профиля и курса.",
-                    "course_created_start",
-                ),
-                sid,
+        if not q:
+            ask = self.agent.call_llm(
+                {"prompt": self.agent.get_initial_question(first_user.get("text"))}
             )
+            await push_and_publish(_msg("bot", ask), sid)
+            q.append(ask)
 
-            history_full = self._history_str(q, a, first_user["text"])
-            await ws.app.state.arq_pool.enqueue_job(
-                "generate",
-                _queue_name="course_generation",
-                task_type=TaskTypeEnum.generate_course,
-                audit_history=history_full,
-                sid=sid,
-                deep=GenerateDeepEnum.first_lesson.value,
+        for step in range(len(a) + 1, self.agent.max_questions + 1):
+            raw = await ws.receive_text()
+            try:
+                u_ans = json.loads(raw)
+            except Exception:
+                u_ans = {"text": raw, "who": "user", "type": "chat"}
+            await self.cache_service.add_message(sid, u_ans)
+            a.append(u_ans["text"])
+
+            if step == self.agent.max_questions:
+                break
+
+            history = self._history_str(q, a, first_user["text"])
+            ask = self.agent.call_llm(
+                {
+                    "prompt": self.agent.get_initial_question(
+                        self.agent.next_question_prompt(history)
+                    )
+                }
             )
-        except asyncio.CancelledError:
-            log.info(f"run_dialog cancelled for session_id={sid}")
-            raise
-        except WebSocketDisconnect:
-            log.info(f"WebSocket disconnected for session_id={sid}")
-            raise
+            await push_and_publish(_msg("bot", ask), sid)
+            q.append(ask)
+
+        await self.cache_service.set_session_status(sid, "course_creating")
+        await push_and_publish(
+            _msg(
+                "system",
+                "Аудит завершён. Сейчас начнётся подготовка профиля и курса.",
+                "course_created_start",
+            ),
+            sid,
+        )
+
+        history_full = self._history_str(q, a, first_user["text"])
+        await ws.app.state.arq_pool.enqueue_job(
+            "generate",
+            _queue_name="course_generation",
+            task_type=TaskTypeEnum.generate_course,
+            audit_history=history_full,
+            sid=sid,
+            deep=GenerateDeepEnum.first_lesson.value,
+        )
 
     async def create_user_preference_by_audit_history(
         self, audit_history: str, sid: str | None = None, user_id: str | None = None
