@@ -79,13 +79,10 @@ async def generate_course_by_user_preference(
             )
             log.info(f"[generate_course] Структура курса сгенерирована для sid={sid}")
 
-        log.info(f"generate_tasks_context: {generate_tasks_context}")
-        log.info(f"generate_params: {generate_params}")
         if (
             generate_tasks_context["main_task_type"]
             == TaskTypeEnum.generate_course.value
         ):
-
             if generate_params.get("deep") != GenerateDeepEnum.user_summary.value:
                 log.info(
                     f"[generate_course] Запуск генерации плана модулей для course_id={course.id}"
