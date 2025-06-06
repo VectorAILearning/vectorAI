@@ -33,7 +33,7 @@ async def generate_lesson_plan(
     sid = generate_tasks_context["params"].get("sid")
     user_id = generate_tasks_context["params"].get("user_id")
     generate_params = generate_tasks_context["params"]
-
+    generate_tasks_context["task_type"] = TaskTypeEnum.generate_lesson_plan.value
     try:
         redis = get_cache_service()
         async with uow_context() as uow:
@@ -54,9 +54,7 @@ async def generate_lesson_plan(
             log.info(
                 f"[generate_lesson_plan] Генерация контент-плана для урока {lesson_id}"
             )
-            await push_and_publish(
-                _msg("bot", f"Генерируем контент-план для урока {lesson.title}…"), sid
-            )
+            # await push_and_publish(_msg("bot", f"Генерируем контент-план для урока {lesson.title}…"), sid)
             content_list = await LearningService(
                 uow
             ).generate_and_save_lesson_content_plan(lesson_id, user_pref_summary)
@@ -64,12 +62,25 @@ async def generate_lesson_plan(
                 f"[generate_lesson_plan] Контент-план для урока {lesson_id} сгенерирован"
             )
 
-            await push_and_publish(
-                _msg("bot", f"Контент-план урока {lesson.title} сгенерирован!"), sid
-            )
+            # await push_and_publish(_msg("bot", f"Контент-план урока {lesson.title} сгенерирован!"), sid)
 
-        if generate_tasks_context["task_type"] == TaskTypeEnum.generate_course.value:
+        if (
+            generate_tasks_context["main_task_type"]
+            == TaskTypeEnum.generate_course.value
+        ):
             if generate_params.get("deep") != GenerateDeepEnum.lesson.value:
+                if generate_params.get("deep") == GenerateDeepEnum.first_lesson.value:
+                    first_content_block = min(content_list, key=lambda c: c.position)
+                    await ctx["arq_queue"].enqueue_job(
+                        "generate_block_content",
+                        content_block_id=str(first_content_block.id),
+                        lesson_id=str(lesson.id),
+                        user_pref_summary=user_pref_summary,
+                        generate_tasks_context=generate_tasks_context,
+                        _queue_name="course_generation",
+                    )
+                    return
+
                 next_lesson = await uow.session.execute(
                     select(LessonModel)
                     .where(LessonModel.module_id == lesson.module_id)

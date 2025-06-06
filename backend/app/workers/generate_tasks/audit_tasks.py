@@ -40,6 +40,7 @@ async def generate_user_summary(
 
     sid = generate_tasks_context["params"].get("sid")
     user_id = generate_tasks_context["params"].get("user_id")
+    generate_tasks_context["task_type"] = TaskTypeEnum.generate_user_summary.value
     try:
         redis = get_cache_service()
         await push_and_publish(_msg("bot", "Анализируем ваши предпочтения…"), sid)
@@ -71,7 +72,10 @@ async def generate_user_summary(
             _msg("bot", "Предпочтение пользователя сгенерировано"), sid
         )
 
-        if generate_tasks_context["task_type"] == TaskTypeEnum.generate_course.value:
+        if (
+            generate_tasks_context["main_task_type"]
+            == TaskTypeEnum.generate_course.value
+        ):
             if (
                 generate_tasks_context["params"].get("deep")
                 != GenerateDeepEnum.user_summary.value

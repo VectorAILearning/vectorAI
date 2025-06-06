@@ -31,6 +31,7 @@ async def generate_course_by_user_preference(
     sid = generate_tasks_context["params"].get("sid")
     user_id = generate_tasks_context["params"].get("user_id")
     generate_params = generate_tasks_context["params"]
+    generate_tasks_context["task_type"] = TaskTypeEnum.generate_course.value
 
     log.info(
         f"[generate_course] Старт генерации курса для sid={sid}, user_id={user_id}"
@@ -80,7 +81,10 @@ async def generate_course_by_user_preference(
 
         log.info(f"generate_tasks_context: {generate_tasks_context}")
         log.info(f"generate_params: {generate_params}")
-        if generate_tasks_context["task_type"] == TaskTypeEnum.generate_course.value:
+        if (
+            generate_tasks_context["main_task_type"]
+            == TaskTypeEnum.generate_course.value
+        ):
 
             if generate_params.get("deep") != GenerateDeepEnum.user_summary.value:
                 log.info(
@@ -93,7 +97,9 @@ async def generate_course_by_user_preference(
                     generate_tasks_context=generate_tasks_context,
                     _queue_name="course_generation",
                 )
-        log.info(f"[generate_course] Генерация курса завершена для sid={sid}")
+                log.info(
+                    f"[generate_course] Генерация модулей и уроков курса началась для sid={sid}"
+                )
         if sid:
             await redis.set_session_status(sid, "course_created")
         return CourseOut.model_validate(course)

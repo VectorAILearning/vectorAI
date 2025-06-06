@@ -31,6 +31,8 @@ async def generate_module_plan(
     sid = generate_tasks_context["params"].get("sid")
     user_id = generate_tasks_context["params"].get("user_id")
     generate_params = generate_tasks_context["params"]
+    generate_tasks_context["task_type"] = TaskTypeEnum.generate_module_plan.value
+
     try:
         redis = get_cache_service()
         async with uow_context() as uow:
@@ -43,15 +45,18 @@ async def generate_module_plan(
                 )
             )
             generate_tasks_context["parent_task_id"] = ctx["job_id"]
-            await push_and_publish(_msg("bot", "Генерируем план модулей курса…"), sid)
+            # await push_and_publish(_msg("bot", "Генерируем план модулей курса…"), sid)
 
             modules = await LearningService(uow).create_modules_plan_by_course_id(
                 course_id, user_pref_summary
             )
 
-            await push_and_publish(_msg("bot", "План модулей сгенерирован!"), sid)
+            # await push_and_publish(_msg("bot", "План модулей сгенерирован!"), sid)
 
-        if generate_tasks_context["task_type"] == TaskTypeEnum.generate_course.value:
+        if (
+            generate_tasks_context["main_task_type"]
+            == TaskTypeEnum.generate_course.value
+        ):
             if generate_params.get("deep") != GenerateDeepEnum.course.value:
                 first_module = min(modules, key=lambda m: m.position)
                 await ctx["arq_queue"].enqueue_job(
@@ -102,6 +107,7 @@ async def generate_module(
     sid = generate_tasks_context["params"].get("sid")
     user_id = generate_tasks_context["params"].get("user_id")
     generate_params = generate_tasks_context["params"]
+    generate_tasks_context["task_type"] = TaskTypeEnum.generate_module.value
 
     log.info(f"[generate_module] Генерация модуля {module_id} для sid={sid}")
 
@@ -119,9 +125,7 @@ async def generate_module(
             generate_tasks_context["parent_task_id"] = ctx["job_id"]
             module = await LearningService(uow).get_module_by_id(module_id)
 
-            await push_and_publish(
-                _msg("bot", f"Генерируем план уроков для модуля {module.title}…"), sid
-            )
+            # await push_and_publish(_msg("bot", f"Генерируем план уроков для модуля {module.title}…"), sid)
 
             lessons = await LearningService(uow).create_lessons_plan_by_module_id(
                 module_id, user_pref_summary
@@ -130,12 +134,10 @@ async def generate_module(
             log.info(
                 f"[generate_module] План уроков для модуля {module.title} сгенерирован"
             )
-            await push_and_publish(
-                _msg("bot", f"План уроков для модуля {module.title} сгенерирован!"), sid
-            )
+            # await push_and_publish(_msg("bot", f"План уроков для модуля {module.title} сгенерирован!"), sid)
 
             if (
-                generate_tasks_context["task_type"]
+                generate_tasks_context["main_task_type"]
                 == TaskTypeEnum.generate_course.value
             ):
                 if generate_params.get("deep") != GenerateDeepEnum.module.value:

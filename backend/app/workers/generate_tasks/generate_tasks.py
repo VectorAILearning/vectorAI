@@ -27,6 +27,7 @@ async def generate(ctx, task_type: str, **kwargs) -> TaskOut:
 
     generate_tasks_context = {
         "main_task_id": ctx["job_id"],
+        "main_task_type": task_type.value,
         "parent_task_id": ctx["job_id"],
         "task_type": task_type.value,
         "params": kwargs,

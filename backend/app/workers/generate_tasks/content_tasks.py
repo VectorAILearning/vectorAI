@@ -33,6 +33,7 @@ async def generate_block_content(
     sid = generate_tasks_context["params"].get("sid")
     user_id = generate_tasks_context["params"].get("user_id")
     generate_params = generate_tasks_context["params"]
+    generate_tasks_context["task_type"] = TaskTypeEnum.generate_content.value
 
     try:
         redis = get_cache_service()
@@ -81,7 +82,7 @@ async def generate_block_content(
                 return
 
             if (
-                generate_tasks_context["task_type"]
+                generate_tasks_context["main_task_type"]
                 == TaskTypeEnum.generate_course.value
             ):
                 if generate_params.get("deep") != GenerateDeepEnum.lesson.value:
