@@ -90,8 +90,8 @@ class OpenAISettings(BaseSettings):
 
 
 class GenerationSettings(BaseSettings):
-    GENERATION_MAX_MODULES: int = 5
-    GENERATION_MAX_LESSONS: int = 5
+    GENERATION_MAX_MODULES: int = 2
+    GENERATION_MAX_LESSONS: int = 2
     GENERATION_MAX_CONTENTS: int = 10
 
 

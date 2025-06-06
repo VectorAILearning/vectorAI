@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from core.database import Base
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql.functions import func
@@ -54,7 +54,7 @@ class PreferenceModel(Base):
 
 class SessionModel(Base):
     __tablename__ = "sessions"
-
+    __table_args__ = (UniqueConstraint("ip", "user_agent", name="uq_ip_user_agent"),)
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )

@@ -1,8 +1,11 @@
+import asyncio
 import json
+import logging
 import time
 import uuid
 
 from agents.audit_agent.agent import AuditAgent
+from fastapi import WebSocketDisconnect
 from models import PreferenceModel
 from models.task import TaskTypeEnum
 from services import RedisCacheService, get_cache_service
@@ -11,6 +14,8 @@ from starlette.websockets import WebSocket
 from utils.uow import UnitOfWork
 from workers.generate_tasks.audit_tasks import _msg
 from workers.generate_tasks.generate_tasks import GenerateDeepEnum
+
+log = logging.getLogger(__name__)
 
 
 class AuditDialogService:
@@ -31,26 +36,11 @@ class AuditDialogService:
             blocks.append(f"Вопрос: {qi}\nОтвет: {ai}")
         return "\n".join(blocks)
 
-    async def send_session_info(self, ws: WebSocket, sid: str) -> None:
-        await ws.send_text(
-            json.dumps(
-                {
-                    "type": "session_info",
-                    "session_id": sid,
-                    "messages": await self.cache_service.get_messages(sid),
-                    "reset_count": await self.cache_service.get_reset_count(sid),
-                }
-            )
-        )
-
     async def get_messages(self, sid: str):
         return await self.cache_service.get_messages(str(sid))
 
     async def run_dialog(self, ws: WebSocket, sid: str):
         stored = await self.get_messages(sid)
-
-        if any(m.get("type") in ("system", "audit_done") for m in stored):
-            return
 
         q, a = [], []
         first_user: dict | None = None

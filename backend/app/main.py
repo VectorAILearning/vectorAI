@@ -17,12 +17,13 @@ logging.basicConfig(
     force=True,
 )
 
+log = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await broadcaster.connect()
     app.state.arq_pool = await get_arq_pool()
-    app.state.ws_by_sid = {}
     yield
     await app.state.arq_pool.close()
     await broadcaster.disconnect()
