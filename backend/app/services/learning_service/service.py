@@ -1,15 +1,18 @@
 import json
+import logging
 import uuid
 
 from agents.lesson_agent.agent import LessonPlanAgent
 from agents.plan_agent.agent import CoursePlanAgent
 from models import ContentModel, CourseModel, PreferenceModel
 from models.content import ContentType
-from models.course import LessonModel
+from models.course import LessonModel, ModuleModel
 from pydantic import ValidationError
 from schemas import CourseUpdate, PreferenceUpdate
-from schemas.course import ContentOut, CourseOut
+from schemas.course import ContentOut, CourseOut, ModuleOut
 from utils.uow import UnitOfWork
+
+log = logging.getLogger(__name__)
 
 
 class LearningService:
@@ -18,16 +21,62 @@ class LearningService:
         self.uow = uow
 
     async def create_course_by_user_preference(
-        self, preference: PreferenceModel, sid: str
+        self,
+        preference: PreferenceModel,
+        sid: str | None = None,
+        user_id: str | None = None,
     ) -> CourseModel:
-        course_plan = self.agent.generate_course(preference.summary)
+        course_plan = self.agent.generate_course_plan(preference.summary)
+        log.info(f"Course plan: {course_plan}")
         course = await self.uow.learning_repo.create_course_by_json(
-            course_plan, session_id=sid
+            course_plan, session_id=sid, user_id=user_id
         )
         await self.uow.audit_repo.update_course_preference(
             preference.id, PreferenceUpdate(course_id=course.id)
         )
         return course
+
+    async def create_modules_plan_by_course_id(
+        self, course_id: uuid.UUID, user_preferences: str
+    ) -> list[ModuleModel]:
+        course = await self.uow.learning_repo.get_course_by_id(course_id)
+        course_structure_json = CourseOut.model_validate(course).model_dump()
+        module_plan = self.agent.generate_module_plan(
+            course_structure_json=json.dumps(
+                course_structure_json, ensure_ascii=False, default=str
+            ),
+            user_preferences=user_preferences,
+        )
+        module_list = []
+        for module_dict in module_plan:
+            module = await self.uow.learning_repo.create_module_by_json(
+                module_json=module_dict, course_id=course_id
+            )
+            module_list.append(module)
+        return module_list
+
+    async def create_lessons_plan_by_module_id(
+        self, module_id: uuid.UUID, user_preferences: str
+    ) -> list[LessonModel]:
+        module = await self.uow.learning_repo.get_module_by_id(module_id)
+        course_structure_json = CourseOut.model_validate(module.course).model_dump()
+        module_structure_json = ModuleOut.model_validate(module).model_dump()
+        lesson_plan = self.agent.generate_lesson_plan(
+            course_structure_json=json.dumps(
+                course_structure_json, ensure_ascii=False, default=str
+            ),
+            module_structure_json=json.dumps(
+                module_structure_json, ensure_ascii=False, default=str
+            ),
+            user_preferences=user_preferences,
+        )
+        lesson_list = []
+        for lesson_dict in lesson_plan:
+            lesson = await self.uow.learning_repo.create_lesson_by_json(
+                lesson_dict, module_id=module_id
+            )
+            lesson_list.append(lesson)
+        return lesson_list
 
     async def initiate_user_learning_by_session_id(
         self, user_id: uuid.UUID, session_id: uuid.UUID
@@ -47,12 +96,16 @@ class LearningService:
     async def get_course_by_id(self, course_id: uuid.UUID):
         return await self.uow.learning_repo.get_course_by_id(course_id)
 
+    async def get_module_by_id(self, module_id: uuid.UUID):
+        return await self.uow.learning_repo.get_module_by_id(module_id)
+
     async def get_lesson_by_id(self, lesson_id: uuid.UUID):
         return await self.uow.learning_repo.get_lesson_by_id(lesson_id)
 
     async def generate_and_save_lesson_content_plan(
-        self, lesson: LessonModel, user_preferences: str = ""
+        self, lesson_id: str, user_preferences: str = ""
     ) -> list[ContentModel]:
+        lesson = await self.uow.learning_repo.get_lesson_by_id(lesson_id)
         course_dict = CourseOut.model_validate(lesson.module.course).model_dump()
         content_plan = LessonPlanAgent().generate_lesson_content_plan(
             lesson_description=f"{lesson.title}. {lesson.description}. Цель: {lesson.goal}",

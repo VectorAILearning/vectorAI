@@ -1,6 +1,6 @@
 import json
 
-from agents.content_agent.agent import ContentAgent
+from agents.content_agent.agent import ContentPlanAgent
 from models import ContentModel
 from schemas.course import CourseOut, LessonOut
 from utils.uow import UnitOfWork
@@ -9,7 +9,7 @@ from utils.uow import UnitOfWork
 class ContentService:
     def __init__(self, uow: UnitOfWork):
         self.uow = uow
-        self.agent = ContentAgent()
+        self.agent = ContentPlanAgent()
 
     async def generate_content_by_block(self, content_obj: ContentModel):
         lesson = content_obj.lesson

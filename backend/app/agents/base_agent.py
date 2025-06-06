@@ -23,12 +23,15 @@ class BaseAgent(ABC):
         """Удаляет суррогатные пары unicode (например, эмодзи, сломанные символы)."""
         return re.sub(r"[\ud800-\udfff]", "", text)
 
-    def call_llm(self, input_data: dict) -> str:
+    def call_llm(self, input_data: dict, prompt: ChatPromptTemplate = None) -> str:
         """
         Выполняет prompt → llm → str (без json)
         """
         try:
-            prompt = self.prompt_template.format_messages(**input_data)
+            if prompt:
+                prompt = prompt.format_messages(**input_data)
+            else:
+                prompt = self.prompt_template.format_messages(**input_data)
             result = self.llm.invoke(prompt).content
             logger.info(result)
             return self.remove_surrogates(result)
@@ -36,18 +39,25 @@ class BaseAgent(ABC):
             logger.exception("Ошибка при вызове LLM:")
             return "Произошла ошибка генерации."
 
-    def call_json_llm(self, input_data: dict) -> dict:
+    def call_json_llm(
+        self, input_data: dict, prompt: ChatPromptTemplate = None
+    ) -> dict:
         """
         prompt → llm → json (через безопасный парсинг)
         """
         try:
-            prompt = self.prompt_template.format_messages(**input_data)
+            if prompt:
+                prompt = prompt.format_messages(**input_data)
+            else:
+                prompt = self.prompt_template.format_messages(**input_data)
+
+            logger.info(f"Prompt: {prompt}")
             result = self.llm.invoke(prompt).content
             clear_result = self.remove_surrogates(result)
             logger.info(clear_result)
             return self._safe_json_parse(clear_result)
         except Exception as e:
-            logger.exception("Ошибка вызова или разбора JSON:")
+            logger.exception(f"Ошибка вызова или разбора JSON: {e}")
             return {"raw": "Произошла ошибка генерации."}
 
     @staticmethod

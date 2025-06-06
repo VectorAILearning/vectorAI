@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from schemas import UserBase
 from schemas.auth import RefreshTokenRequest, RegistrationResponse, Token, UserRegister
@@ -81,18 +80,20 @@ async def refresh_token(
         )
 
 
-@auth_router.get("/protected", response_model=UserBase)
-async def protected_route(current_user: str = Depends(get_current_user)):
+@auth_router.get("/me", response_model=UserBase)
+async def me(current_user: str = Depends(get_current_user)):
     return current_user
 
 
-@auth_router.get("/verify-email", response_class=HTMLResponse)
+@auth_router.get("/verify-email", response_model=RegistrationResponse)
 async def verify_email(token: str, uow: UnitOfWork = Depends(get_uow)):
     try:
         auth_service = AuthService(uow)
         await auth_service.verify_user_email(token)
-        return "<h1>Email успешно подтвержден!</h1><p>Теперь вы можете войти.</p>"
+        return RegistrationResponse(result="Email успешно подтвержден!")
     except HTTPException as e:
-        return f"<h1>Ошибка подтверждения email:</h1><p>{e.detail}</p>"
+        raise e
     except Exception as e:
-        return "<h1>Произошла внутренняя ошибка сервера.</h1><p>Пожалуйста, попробуйте еще раз позже.</p>"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка сервера"
+        )

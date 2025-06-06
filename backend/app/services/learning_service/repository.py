@@ -1,11 +1,15 @@
+import logging
 import uuid
 
 from fastapi import HTTPException
 from models import CourseModel, LessonModel, ModuleModel
+from models.content import ContentModel
 from schemas import CourseIn, CourseUpdate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
+
+log = logging.getLogger(__name__)
 
 
 class LearningRepository:
@@ -54,26 +58,6 @@ class LearningRepository:
             estimated_time_hours=course_in.estimated_time_hours,
             user_id=uuid.UUID(user_id) if user_id else None,
             session_id=uuid.UUID(session_id) if session_id else None,
-            modules=[
-                ModuleModel(
-                    title=mod.title,
-                    description=mod.description,
-                    estimated_time_hours=mod.estimated_time_hours,
-                    goal=mod.goal,
-                    position=mod.position,
-                    lessons=[
-                        LessonModel(
-                            title=les.title,
-                            goal=les.goal,
-                            position=les.position,
-                            description=(les.description),
-                            estimated_time_hours=les.estimated_time_hours,
-                        )
-                        for les in mod.lessons
-                    ],
-                )
-                for mod in course_in.modules
-            ],
         )
         self.db.add(course)
         await self.db.commit()
@@ -94,14 +78,73 @@ class LearningRepository:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_module_by_id(self, module_id: uuid.UUID) -> ModuleModel | None:
+        stmt = (
+            select(ModuleModel)
+            .where(ModuleModel.id == module_id)
+            .options(
+                selectinload(ModuleModel.lessons),
+                selectinload(ModuleModel.course)
+                .selectinload(CourseModel.modules)
+                .selectinload(ModuleModel.lessons)
+                .selectinload(LessonModel.contents),
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def create_module_by_json(
+        self,
+        module_json: dict,
+        course_id: uuid.UUID,
+    ) -> ModuleModel:
+        log.info(f"Module json: {module_json}")
+        module = ModuleModel(
+            title=module_json["title"],
+            description=module_json["description"],
+            estimated_time_hours=module_json["estimated_time_hours"],
+            position=module_json["position"],
+            course_id=course_id,
+        )
+        self.db.add(module)
+        await self.db.commit()
+        await self.db.refresh(module)
+        return module
+
     async def get_lesson_by_id(self, lesson_id: uuid.UUID) -> LessonModel | None:
         stmt = (
             select(LessonModel)
             .where(LessonModel.id == lesson_id)
             .options(
-                selectinload(LessonModel.module).selectinload(ModuleModel.course),
+                selectinload(LessonModel.module)
+                .selectinload(ModuleModel.course)
+                .selectinload(CourseModel.modules)
+                .selectinload(ModuleModel.lessons)
+                .selectinload(LessonModel.contents),
                 selectinload(LessonModel.contents),
             )
         )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def create_lesson_by_json(
+        self,
+        lesson_json: dict,
+        module_id: uuid.UUID,
+    ) -> LessonModel:
+        lesson = LessonModel(
+            title=lesson_json["title"],
+            description=lesson_json["description"],
+            estimated_time_hours=lesson_json["estimated_time_hours"],
+            position=lesson_json["position"],
+            module_id=module_id,
+        )
+        self.db.add(lesson)
+        await self.db.commit()
+        await self.db.refresh(lesson)
+        return lesson
+
+    async def get_content_by_id(self, content_id: uuid.UUID) -> ContentModel | None:
+        stmt = select(ContentModel).where(ContentModel.id == content_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()

@@ -3,8 +3,15 @@ import sys
 
 from arq.connections import RedisSettings, create_pool
 from core.config import settings
-from workers.audit_tasks import create_learning_task
-from workers.content_tasks import generate_block_content
+from workers.generate_tasks import (
+    generate,
+    generate_block_content,
+    generate_course_by_user_preference,
+    generate_lesson_plan,
+    generate_module,
+    generate_module_plan,
+    generate_user_summary,
+)
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -32,7 +39,12 @@ async def on_shutdown(ctx):
 
 class WorkerSettings:
     functions = [
-        create_learning_task,
+        generate,
+        generate_user_summary,
+        generate_course_by_user_preference,
+        generate_module_plan,
+        generate_module,
+        generate_lesson_plan,
         generate_block_content,
     ]
     redis_settings = RedisSettings(
@@ -45,3 +57,5 @@ class WorkerSettings:
     queue_name = "course_generation"
     on_startup = on_startup
     on_shutdown = on_shutdown
+    keep_result = 3600
+    job_ctx = True
