@@ -1,5 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import TextContent from "../components/TextContent";
+import VideoContent from "../components/VideoContent"
+import DialogContent from "../components/DialogContent";
+import TestContent from "../components/TestContent";
+import QuestionContent from "../components/QuestionContent";
+import ReflectionContent from "../components/ReflectionContent";
+import MistakesContent from "../components/MistakesContent";
+import ExamplesContent from "../components/ExamplesContent"
+import PracticeContent from "../components/PracticeContent"
 
 export default function LessonsPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -12,10 +21,8 @@ export default function LessonsPage() {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const courseMenuRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [idYoutubeVideo, setIdYoutubeVideo] = useState<string>("")
   const navigate = useNavigate();
   const { lessonId, courseId } = useParams();
-  const arr  = [1,2,3,4,5,6,7,8,9]
 
   useEffect(() => {
     const apiHost = import.meta.env.VITE_API_HOST;
@@ -89,8 +96,6 @@ export default function LessonsPage() {
       });
 
   };
-
-
 
 
   return (
@@ -264,107 +269,58 @@ export default function LessonsPage() {
               <div className="mt-8">
                 <h2 className="text-2xl font-semibold mb-4 text-center">Контент урока</h2>
                 <ul className="space-y-4">
+                  
                   {selectedLessons.contents.map((block: any, idx: number) => (
                     <li key={block.id || idx} className="p-4 rounded bg-base-200">
                       <div className="font-bold mb-1">
-                        {block.position}. {block.type.toUpperCase()}
+                        {block.position}. {block.type.toUpperCase()}   
+                        <p></p>
                       </div>
                       {block.type === "text" && (
-                        <div>{block.content.text}</div>
+                        <TextContent
+                        textContent={block.content}
+                        />
                       )}
                       {block.type === "video" && (
-                        <div>
-                          <div className="font-semibold">{block.content.title}</div>
-                          <div>{block.content.description}</div>
-                          {/* {("https://www.youtube.com/embed/" + block.content.url.split("").splice(-11).join(""))} */}
-                          {block.content.url && (
-
-                            // <a
-                            //   href={block.content.url}
-                            //   target="_blank"
-                            //   rel="noopener noreferrer"
-                            //   className="text-primary underline"
-                            // >
-                            //   href={block.content.url}
-                            // </a>
-                            <iframe width="560"
-                              height="315"
-                              src={("https://www.youtube.com/embed/" + block.content.url.split("").splice(-11).join(""))}
-                              // src="https://www.youtube.com/embed/DHvZLI7Db8E" 
-                              title="YouTube video player"
-                              frameborder="0"
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                              referrerpolicy="strict-origin-when-cross-origin"
-                              allowfullscreen>
-                            </iframe>
-                          )}
-                        </div>
+                        <VideoContent
+                        videoContent={block.content}
+                        />
+                      )}
+                       {block.type === "examples" && (
+                        <ExamplesContent
+                        examplesContent={block.content}
+                        />
+                      )}
+                      {block.type === "mistakes" && (
+                       <MistakesContent
+                        mistakesContent={block.content}
+                       />
                       )}
                       {block.type === "dialog" && (
-                        <div>
-                          {block.content.dialog?.map((rep: any, i: number) => (
-                              <div key={i}>
-                                {arr.map((elem, i) => (<li>elem</li>))}
-                                <div className="chat chat-start">
-                            <div className="chat-image avatar">
-                              <div className="w-10 rounded-full">
-                                <img
-                                  alt="Tailwind CSS chat bubble component"
-                                  src="https://img.daisyui.com/images/profile/demo/kenobee@192.webp"
-                                />
-                              </div>
-                            </div>
-                            <div className="chat-header">
-                              {rep.role}
-                              <time className="text-xs opacity-50">12:45</time>
-                            </div>
-                            <div className="chat-bubble">You were the Chosen One!</div>
-                            <div className="chat-footer opacity-50">Delivered</div>
-                          </div>
-                          <div className="chat chat-end">
-                            <div className="chat-image avatar">
-                              <div className="w-10 rounded-full">
-                                <img
-                                  alt="Tailwind CSS chat bubble component"
-                                  src="https://img.daisyui.com/images/profile/demo/anakeen@192.webp"
-                                />
-                              </div>
-                            </div>
-                            <div className="chat-header">
-                              Anakin
-                              <time className="text-xs opacity-50">12:46</time>
-                            </div>
-                            <div className="chat-bubble">I hate you!</div>
-                            <div className="chat-footer opacity-50">Seen at 12:46</div>
-                          </div>
-                              </div>
-                            ))}
-                            
-                         
-                        </div>
+                        <DialogContent
+                        dialogContent={block.content}
+                        />
                       )}
+                      {block.type === "practice" && (
+                        <PracticeContent
+                        practiceContent={block.content}
+                        />
+                      )}
+
                       {block.type === "open_answer" && (
-                        <div>
-                          <span className="font-semibold">Задание:</span> {block.content.question}
-                        </div>
+                        <TestContent
+                        testContent={block.content}
+                        />
                       )}
                       {block.type === "reflection" && (
-                        <div>
-                          <span className="font-semibold">Рефлексия:</span> {block.content.prompt}
-                        </div>
+                        <ReflectionContent
+                        reflectionContent={block.content}
+                        />
                       )}
                       {block.type === "test" && (
-                        <div>
-                          <div className="font-semibold">{block.content.question}</div>
-                          <ul className="list-disc ml-6">
-                            {block.content.options?.map((opt: string, i: number) => (
-                              <li key={i}>{opt}</li>
-                            ))}
-                          </ul>
-                          <div className="text-xs text-base-content/60 mt-1">
-                            <span className="font-semibold">Ответ:</span> {block.content.answer}
-                          </div>
-                        </div>
+                        <QuestionContent 
+                        questionContent={block.content}
+                        />
                       )}
                     </li>
                   ))}

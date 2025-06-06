@@ -1,17 +1,22 @@
 import React from 'react'
 
-export default function VideoContent() {
+export default function VideoContent({videoContent}) {
+  console.log(videoContent)
   return (
     <div>
-        
-        <iframe 
-        width="560" height="315" src="https://www.youtube.com/embed/5kMmJJafL-Y?si=lpyx5CklmbZhunST" 
-        title="YouTube video player" 
-        frameborder="0" 
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-        referrerpolicy="strict-origin-when-cross-origin" 
-        allowfullscreen>
+      <div className="font-semibold">{videoContent.title}</div>
+      <div>{videoContent.description}</div>
+      {videoContent.url && (
+        <iframe width="560"
+          height="315"
+          src={("https://www.youtube.com/embed/" + videoContent.url.split("").splice(-11).join(""))}
+          title="YouTube video player"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen>
         </iframe>
+      )}
     </div>
   )
 }
