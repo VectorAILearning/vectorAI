@@ -17,91 +17,82 @@ from workers.generate_tasks.generate_tasks import GenerateDeepEnum
 
 log = logging.getLogger(__name__)
 
-
 class AuditDialogService:
-    def __init__(
-        self,
-        uow: UnitOfWork | None = None,
-        cache_service: RedisCacheService | None = None,
-        agent: AuditAgent | None = None,
-    ):
-        self.cache_service = cache_service or get_cache_service()
+    def __init__(self,
+                 uow: UnitOfWork | None = None,
+                 cache_service: RedisCacheService | None = None,
+                 agent: AuditAgent | None = None):
+        self.cache = cache_service or get_cache_service()
         self.agent = agent or AuditAgent()
-        self.uow = uow
+        self.uow   = uow
+
+    async def _msgs(self, sid: str) -> list[dict]:
+        return await self.cache.get_messages(str(sid))
+
+    async def _save(self, sid: str, msg: dict) -> None:
+        await self.cache.add_message(str(sid), msg)
+
+    async def _bot_send(self, sid: str, question: str, options: list[str] | None = None) -> dict:
+        payload = {"question": question, "options": options or []}
+        msg_obj = {"who": "bot", "type": "chat", "text": json.dumps(payload, ensure_ascii=False)}
+        await push_and_publish(_msg("bot", msg_obj["text"]), sid)
+        return msg_obj
 
     @staticmethod
-    def _history_str(q: list[str], a: list[str], first: str) -> str:
-        blocks = [f"Вопрос: Здравствуйте! Опишите вашу цель?\nОтвет: {first}"]
-        for qi, ai in zip(q, a):
-            blocks.append(f"Вопрос: {qi}\nОтвет: {ai}")
-        return "\n".join(blocks)
+    def _history_str(msgs: list[dict]) -> str:
+        out: list[str] = []
+        for m in msgs:
+            if m["who"] == "bot":
+                q = json.loads(m["text"])["question"]
+                out.append(f"Вопрос: {q}")
+            elif m["who"] == "user":
+                out.append(f"Ответ: {m['text']}")
+        return "\n".join(out)
 
-    async def get_messages(self, sid: str):
-        return await self.cache_service.get_messages(str(sid))
+    async def _wait_user(self, ws: WebSocket) -> dict:
+        raw = await ws.receive_text()
+        try:
+            msg = json.loads(raw)
+            if not isinstance(msg, dict):
+                raise ValueError
+        except Exception:
+            msg = {"who": "user", "type": "chat", "text": raw}
+        return msg
+
 
     async def run_dialog(self, ws: WebSocket, sid: str):
-        stored = await self.get_messages(sid)
+        msgs = await self._msgs(sid)
 
-        q, a = [], []
-        first_user: dict | None = None
-
-        for m in stored:
-            if m["who"] == "user" and first_user is None:
-                first_user = m
-            elif m["who"] == "bot" and m["type"] == "chat":
-                q.append(m["text"])
-            elif m["who"] == "user" and q:
-                a.append(m["text"])
-
-        if first_user is None:
-            raw = await ws.receive_text()
-            try:
-                first_user = json.loads(raw)
-            except Exception:
-                first_user = {"text": raw, "who": "user", "type": "chat"}
-            await self.cache_service.add_message(str(sid), first_user)
-
-        if not q:
-            ask = self.agent.call_llm(
-                {"prompt": self.agent.get_initial_question(first_user.get("text"))}
-            )
-            await push_and_publish(_msg("bot", ask), sid)
-            q.append(ask)
-
-        for step in range(len(a) + 1, self.agent.max_questions + 1):
-            raw = await ws.receive_text()
-            try:
-                u_ans = json.loads(raw)
-            except Exception:
-                u_ans = {"text": raw, "who": "user", "type": "chat"}
-            await self.cache_service.add_message(sid, u_ans)
-            a.append(u_ans["text"])
-
-            if step == self.agent.max_questions:
+        while True:
+            user_answers = [m for m in msgs if m["who"] == "user"]
+            if len(user_answers) >= self.agent.max_questions + 1:
                 break
 
-            history = self._history_str(q, a, first_user["text"])
-            ask = self.agent.call_llm(
-                {
-                    "prompt": self.agent.get_initial_question(
-                        self.agent.next_question_prompt(history)
-                    )
-                }
-            )
-            await push_and_publish(_msg("bot", ask), sid)
-            q.append(ask)
+            if not msgs or msgs[-1]["who"] == "bot":
+                user_msg = await self._wait_user(ws)
+                await self._save(sid, user_msg)
+                msgs.append(user_msg)
+                continue
 
-        await self.cache_service.set_session_status(sid, "course_creating")
+            first_prompt = user_answers[0]["text"]
+            history      = self._history_str(msgs)
+            ask = self.agent.build_question_prompt(
+                client_prompt=first_prompt,
+                history=history if len(user_answers) > 1 else None
+            )
+            await self._bot_send(sid, ask["question"], ask.get("options", []))
+            msgs.append({"who": "bot", "type": "chat",
+                         "text": json.dumps(ask, ensure_ascii=False)})
+
+        await self.cache.set_session_status(sid, "course_creating")
         await push_and_publish(
-            _msg(
-                "system",
-                "Аудит завершён. Сейчас начнётся подготовка профиля и курса.",
-                "course_created_start",
-            ),
+            _msg("system",
+                 "Аудит завершён. Сейчас начнётся подготовка профиля и курса.",
+                 "course_created_start"),
             sid,
         )
 
-        history_full = self._history_str(q, a, first_user["text"])
+        history_full = self._history_str(msgs)
         await ws.app.state.arq_pool.enqueue_job(
             "generate",
             _queue_name="course_generation",
@@ -109,12 +100,4 @@ class AuditDialogService:
             audit_history=history_full,
             sid=sid,
             deep=GenerateDeepEnum.first_lesson.value,
-        )
-
-    async def create_user_preference_by_audit_history(
-        self, audit_history: str, sid: str | None = None, user_id: str | None = None
-    ) -> PreferenceModel:
-        summary = self.agent.summarize_profile_prompt(audit_history)
-        return await self.uow.audit_repo.create_user_preference(
-            summary, sid=sid, user_id=user_id
         )
