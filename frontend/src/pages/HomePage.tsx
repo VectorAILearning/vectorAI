@@ -271,7 +271,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-base-100">
-      <div className="w-full max-w-md flex flex-col gap-4 flex-1 pt-8">
+      <div className="w-full max-w-lg flex flex-col gap-4 flex-1 pt-8">
         <h1 className="text-5xl font-bold text-center mb-2 text-base-content">
           Твоё <span className="text-primary">развитие</span>
         </h1>
@@ -291,9 +291,9 @@ export default function HomePage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={status !== "chating" || !canSend}
-              className="bg-base-200 text-base-content flex-1"
+              className="text-base-content flex-1"
             />
-            <kbd className="kbd kbd-sm text-base-content bg-base-100 border-base-300">
+            <kbd className="kbd text-base-content">
               Enter
             </kbd>
           </label>
@@ -304,7 +304,7 @@ export default function HomePage() {
               <div
                 key={idx}
                 className="cursor-pointer bg-primary rounded px-3 py-1 hover:scale-105 \
-                transition text-xs w-auto whitespace-pre-line"
+                transition text-xs w-auto whitespace-pre-line text-white"
                 onClick={() => {
                   setInput(opt);
                   inputRef.current?.focus();
