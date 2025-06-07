@@ -43,7 +43,9 @@ async def generate_user_summary(
     generate_tasks_context["task_type"] = TaskTypeEnum.generate_user_summary.value
     try:
         redis = get_cache_service()
-        await push_and_publish(_msg("bot", "Анализируем ваши предпочтения…"), sid)
+        await push_and_publish(
+            _msg("bot", "Анализируем ваши предпочтения…", "chat_info"), sid
+        )
         async with uow_context() as uow:
             await TaskService(uow).create_task(
                 TaskIn(
@@ -57,7 +59,9 @@ async def generate_user_summary(
             user_pref = await AuditDialogService(
                 uow
             ).create_user_preference_by_audit_history(
-                audit_history, sid=sid, user_id=user_id
+                audit_history=audit_history,
+                sid=sid,
+                user_id=user_id,
             )
 
         await push_and_publish(
@@ -69,7 +73,7 @@ async def generate_user_summary(
             sid,
         )
         await push_and_publish(
-            _msg("bot", "Предпочтение пользователя сгенерировано"), sid
+            _msg("bot", "Предпочтение пользователя сгенерировано", "chat_info"), sid
         )
 
         if (
@@ -102,7 +106,7 @@ async def generate_user_summary(
             _msg(
                 "system",
                 "Ошибка при генерации предпочтения пользователя",
-                "user_preference_generation_error",
+                "error",
             ),
             sid,
         )

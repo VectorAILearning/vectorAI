@@ -17,6 +17,7 @@ export default function HomePage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [wsTimestamp, setWsTimestamp] = useState(Date.now());
+  const [botOptions, setBotOptions] = useState<string[] | null>(null);
   const navigate = useNavigate();
   const chatRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -53,22 +54,6 @@ export default function HomePage() {
           return;
         }
 
-        if (data.type === "session_info") {
-          if (Array.isArray(data.messages)) {
-            data.messages.forEach((m: Message) => {
-              if (m.id) seenRef.current.add(m.id);
-            });
-            setMessages(data.messages);
-            const last = data.messages.at(-1);
-            if (last?.type === "course_created_done") {
-              setStatus("course_created");
-              ws.close();
-            }
-          }
-          if (typeof data.reset_count === "number")
-            setResetCount(data.reset_count);
-          return;
-        }
         if (data.type === "course_created_start") {
           setStatus("course_creating");
         }
@@ -81,9 +66,24 @@ export default function HomePage() {
           data.who = "bot";
         addIfNew(data);
         setInput("");
+        if (data.who === "bot" && data.type === "chat") {
+          try {
+            const parsed = JSON.parse(data.text);
+            if (parsed.options && Array.isArray(parsed.options)) {
+              setBotOptions(parsed.options);
+            } else {
+              setBotOptions(null);
+            }
+          } catch {
+            setBotOptions(null);
+          }
+        } else {
+          setBotOptions(null);
+        }
       } catch {
         addIfNew({ text: event.data, who: "bot", type: "chat" });
         setInput("");
+        setBotOptions(null);
       }
     },
     [addIfNew],
@@ -96,6 +96,25 @@ export default function HomePage() {
     if (typeof data.session_id === "string") {
       setSessionId(data.session_id);
       setIsSessionReady(true);
+    }
+    if (Array.isArray(data.messages)) {
+      const last = data.messages.at(-1);
+      if (last && last.who === "bot" && last.type === "chat") {
+        try {
+          const parsed = JSON.parse(last.text);
+          if (parsed.options && Array.isArray(parsed.options)) {
+            setBotOptions(parsed.options);
+          } else {
+            setBotOptions(null);
+          }
+        } catch {
+          setBotOptions(null);
+        }
+      } else {
+        setBotOptions(null);
+      }
+    } else {
+      setBotOptions(null);
     }
   }, []);
 
@@ -174,6 +193,7 @@ export default function HomePage() {
       addIfNew(msg);
       send(JSON.stringify(msg));
       setInput("");
+      setBotOptions(null);
     }
   };
 
@@ -237,6 +257,18 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const renderBotMessage = useCallback((m: Message) => {
+    if (m.who === "bot" && m.type === "chat") {
+      try {
+        const parsed = JSON.parse(m.text);
+        return parsed.question ?? m.text;
+      } catch {
+        return m.text;
+      }
+    }
+    return m.text;
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col items-center bg-base-100">
       <div className="w-full max-w-md flex flex-col gap-4 flex-1 pt-8">
@@ -248,7 +280,10 @@ export default function HomePage() {
         </p>
 
         <form className="flex gap-2 w-full" onSubmit={handleSubmit}>
-          <label className="input input-bordered input-lg w-full flex items-center gap-2 bg-base-200 border-base-300 text-base-content">
+          <label
+            className="input input-bordered input-lg w-full flex items-center gap-2 
+            bg-base-200 border-base-300 text-base-content"
+          >
             <input
               ref={inputRef}
               type="text"
@@ -263,6 +298,23 @@ export default function HomePage() {
             </kbd>
           </label>
         </form>
+        {botOptions && (
+          <div className="flex flex-row flex-wrap gap-2">
+            {botOptions.map((opt, idx) => (
+              <div
+                key={idx}
+                className="cursor-pointer bg-primary rounded px-3 py-1 hover:scale-105 \
+                transition text-xs w-auto whitespace-pre-line"
+                onClick={() => {
+                  setInput(opt);
+                  inputRef.current?.focus();
+                }}
+              >
+                {opt}
+              </div>
+            ))}
+          </div>
+        )}
 
         {messages.length > 0 && (
           <div
@@ -271,7 +323,7 @@ export default function HomePage() {
             style={{ minHeight: 200, maxHeight: 400 }}
           >
             {messages
-              .filter((m) => m.type === "chat")
+              .filter((m) => m.type === "chat" || m.type === "chat_info")
               .map((m, i) => (
                 <div
                   key={m.id || i}
@@ -280,7 +332,7 @@ export default function HomePage() {
                   <div
                     className={`chat-bubble ${m.who === "user" ? "chat-bubble-primary" : "bg-base-100 text-base-content border border-base-300"}`}
                   >
-                    {m.text}
+                    {renderBotMessage(m)}
                   </div>
                 </div>
               ))}

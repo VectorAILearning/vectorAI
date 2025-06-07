@@ -50,7 +50,7 @@ async def generate_course_by_user_preference(
             generate_tasks_context["parent_task_id"] = ctx["job_id"]
 
             await push_and_publish(
-                _msg("bot", "Генерируем для вас индивидуальный курс…"), sid
+                _msg("bot", "Генерируем для вас индивидуальный курс…", "chat_info"), sid
             )
             log.debug(
                 f"[generate_course] Вызов create_course_by_user_preference для sid={sid}, user_id={user_id}"
@@ -68,7 +68,9 @@ async def generate_course_by_user_preference(
                 await redis.add_generated_course(sid, course_data)
                 log.info(f"[generate_course] Курс добавлен в redis для sid={sid}")
 
-            await push_and_publish(_msg("bot", "Структура курса сгенерирована!"), sid)
+            await push_and_publish(
+                _msg("bot", "Структура курса сгенерирована!", "chat_info"), sid
+            )
             await push_and_publish(
                 _msg(
                     "system",
