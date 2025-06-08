@@ -19,3 +19,16 @@ class RefreshTokenRequest(BaseModel):
 
 class RegistrationResponse(BaseModel):
     result: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    username: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class GoogleLoginRequest(BaseModel):
+    code: str

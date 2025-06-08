@@ -34,3 +34,22 @@ async def send_verification_email(email: EmailStr, token: str):
         await fm.send_message(message)
     except Exception as e:
         log.error(f"Error sending email: {e}", exc_info=True)
+
+
+async def send_password_reset_email(email_to: EmailStr, token: str):
+    try:
+        reset_url = f"{settings.DOMAIN}/reset_password?token={token}"
+        html_content = f"""<p>Для сброса пароля, пожалуйста, перейдите по следующей ссылке: <a href="{reset_url}">Сбросить пароль</a></p>"""
+        log.info(html_content)
+
+        message = MessageSchema(
+            subject="Сброс пароля",
+            recipients=[email_to],
+            body=html_content,
+            subtype=MessageType.html,
+        )
+
+        fm = FastMail(conf)
+        await fm.send_message(message)
+    except Exception as e:
+        log.error(f"Error sending email: {e}", exc_info=True)
