@@ -14,6 +14,7 @@ class ContentOut(BaseModel):
 
     class Config:
         from_attributes = True
+        json_encoders = {uuid.UUID: str}
 
 
 class LessonIn(BaseModel):
@@ -62,6 +63,7 @@ class LessonOut(BaseModel):
 
     class Config:
         from_attributes = True
+        json_encoders = {uuid.UUID: str}
 
 
 class ModuleOut(BaseModel):
@@ -76,6 +78,7 @@ class ModuleOut(BaseModel):
 
     class Config:
         from_attributes = True
+        json_encoders = {uuid.UUID: str}
 
 
 class CourseOut(BaseModel):
@@ -89,3 +92,4 @@ class CourseOut(BaseModel):
 
     class Config:
         from_attributes = True
+        json_encoders = {uuid.UUID: str}

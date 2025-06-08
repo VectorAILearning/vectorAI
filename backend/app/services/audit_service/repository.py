@@ -3,19 +3,21 @@ import uuid
 from fastapi import HTTPException
 from models import PreferenceModel
 from schemas import PreferenceUpdate
+from services.base.repository import BaseRepository
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-class AuditRepository:
-    def __init__(self, db: AsyncSession):
-        self.db = db
+class AuditRepository(BaseRepository):
+    def __init__(self, session: AsyncSession):
+        super().__init__(session, PreferenceModel)
+        self.session = session
 
     async def get_preference_by_session_id(
         self, session_id: str
     ) -> PreferenceModel | None:
         stmt = select(PreferenceModel).where(PreferenceModel.session_id == session_id)
-        result = await self.db.execute(stmt)
+        result = await self.session.execute(stmt)
         preference = result.scalar_one_or_none()
         return preference
 
@@ -30,15 +32,15 @@ class AuditRepository:
             session_id=uuid.UUID(sid) if sid else None,
             summary=summary,
         )
-        self.db.add(preference)
-        await self.db.commit()
-        await self.db.refresh(preference)
+        self.session.add(preference)
+        await self.session.commit()
+        await self.session.refresh(preference)
         return preference
 
     async def update_course_preference(
         self, preference_id, data: PreferenceUpdate
     ) -> PreferenceModel:
-        preference_db = await self.db.get(PreferenceModel, preference_id)
+        preference_db = await self.get_by_id(preference_id)
         if not preference_db:
             raise HTTPException(
                 status_code=404, detail=f"Preference with {preference_id} not found"
@@ -49,6 +51,6 @@ class AuditRepository:
         for key, value in data_dict.items():
             setattr(preference_db, key, value)
 
-        await self.db.commit()
-        await self.db.refresh(preference_db)
+        await self.session.commit()
+        await self.session.refresh(preference_db)
         return preference_db

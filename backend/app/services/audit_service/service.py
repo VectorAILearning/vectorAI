@@ -4,12 +4,14 @@ import logging
 from agents.audit_agent.agent import AuditAgent
 from models.base import PreferenceModel
 from models.task import TaskTypeEnum
+from schemas.task import TaskIn
 from services import RedisCacheService, get_cache_service
 from services.message_bus import push_and_publish
+from services.task_service.service import TaskService
 from starlette.websockets import WebSocket
-from utils.uow import UnitOfWork
-from workers.generate_tasks.audit_tasks import _msg
-from workers.generate_tasks.generate_tasks import GenerateDeepEnum
+from utils.uow import uow_context
+from utils.ws_msg import _msg
+from workers.generate_tasks.course_tasks import GenerateDeepEnum
 
 log = logging.getLogger(__name__)
 
@@ -17,13 +19,11 @@ log = logging.getLogger(__name__)
 class AuditDialogService:
     def __init__(
         self,
-        uow: UnitOfWork | None = None,
         cache_service: RedisCacheService | None = None,
         agent: AuditAgent | None = None,
     ):
         self.cache = cache_service or get_cache_service()
         self.agent = agent or AuditAgent()
-        self.uow = uow
 
     async def _msgs(self, sid: str) -> list[dict]:
         return await self.cache.get_messages(str(sid))
@@ -104,19 +104,31 @@ class AuditDialogService:
         )
 
         history_full = self._history_str(msgs)
-        await ws.app.state.arq_pool.enqueue_job(
-            "generate",
+        job = await ws.app.state.arq_pool.enqueue_job(
+            "generate_course",
             _queue_name="course_generation",
-            task_type=TaskTypeEnum.generate_course,
+            deep=GenerateDeepEnum.first_lesson_content.value,
             audit_history=history_full,
-            sid=sid,
-            deep=GenerateDeepEnum.first_lesson.value,
+            session_id=sid,
         )
+        async with uow_context() as uow:
+            await TaskService(uow).create_task(
+                TaskIn(
+                    id=job.job_id,
+                    task_type=TaskTypeEnum.generate_course,
+                    params={
+                        "deep": GenerateDeepEnum.first_lesson_content.value,
+                        "audit_history": history_full,
+                    },
+                    session_id=sid,
+                )
+            )
 
     async def create_user_preference_by_audit_history(
         self, audit_history: str, sid: str | None = None, user_id: str | None = None
     ) -> PreferenceModel:
         summary = self.agent.summarize_profile_by_audit_history(audit_history)
-        return await self.uow.audit_repo.create_user_preference(
-            summary, sid=sid, user_id=user_id
-        )
+        async with uow_context() as uow:
+            return await uow.audit_repo.create_user_preference(
+                summary, sid=sid, user_id=user_id
+            )

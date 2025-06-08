@@ -4,11 +4,11 @@ import sys
 from arq.connections import RedisSettings, create_pool
 from core.config import settings
 from workers.generate_tasks import (
-    generate,
-    generate_block_content,
-    generate_course_by_user_preference,
-    generate_lesson_plan,
-    generate_module,
+    generate_content,
+    generate_course,
+    generate_course_base,
+    generate_course_plan,
+    generate_lesson_content_plan,
     generate_module_plan,
     generate_user_summary,
 )
@@ -39,13 +39,13 @@ async def on_shutdown(ctx):
 
 class WorkerSettings:
     functions = [
-        generate,
-        generate_user_summary,
-        generate_course_by_user_preference,
+        generate_course,
+        generate_course_base,
+        generate_course_plan,
         generate_module_plan,
-        generate_module,
-        generate_lesson_plan,
-        generate_block_content,
+        generate_lesson_content_plan,
+        generate_content,
+        generate_user_summary,
     ]
     redis_settings = RedisSettings(
         host=settings.REDIS_HOST,

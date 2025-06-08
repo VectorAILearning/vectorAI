@@ -23,10 +23,14 @@ async def pipe_broadcast(ws: WebSocket, channel: str, sid: str):
                 except Exception as e:
                     log.warning(f"Ошибка при отправке сообщения по ws: {e}")
                     break
-
-                if json.loads(ev.message).get("type") == "course_created_done":
-                    log.info(f"course_created_done for sid={sid}")
-                    log.info(f"broadcast_task down")
+                log.info(ev.message)
+                log.info(json.loads(ev.message).get("type"))
+                log.info(json.loads(ev.message).get("text") == "course_created_done")
+                if json.loads(ev.message).get("type") in [
+                    "course_created_done",
+                    "course_generation_error",
+                ]:
+                    log.info(f"broadcast_task down for sid={sid}")
                     break
         except asyncio.CancelledError:
             log.info(f"pipe_broadcast cancelled for sid={sid}")
@@ -52,7 +56,7 @@ async def audit_websocket(ws: WebSocket, session_id: str = Query(...)):
         session_status = await cache_service.get_session_status(session_id)
         log.info(f"session_status: {session_status}")
         broadcast_task = None
-        if session_status != "course_created":
+        if session_status not in ["course_created_done", "course_generation_error"]:
             broadcast_task = asyncio.create_task(
                 pipe_broadcast(ws, f"chat_{session_id}", session_id)
             )
