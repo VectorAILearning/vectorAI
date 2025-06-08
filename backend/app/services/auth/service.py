@@ -4,19 +4,20 @@ from datetime import datetime, timedelta, timezone
 from typing import Self
 
 import bcrypt
+import httpx
 import jwt
 from core.config import settings
 from fastapi import HTTPException, status
 from models import RefreshTokenModel, UserModel
 from pydantic import EmailStr
 from schemas import Token
-from utils.email_sender import send_verification_email
+from utils.email_sender import send_password_reset_email, send_verification_email
 from utils.uow import UnitOfWork
 
 
 class AuthService:
     def __init__(self: Self, uow: UnitOfWork) -> None:
-        self.uow = uow
+        self.uow: UnitOfWork = uow
 
     @staticmethod
     def verify_password(plain_password, hashed_password):
@@ -46,9 +47,9 @@ class AuthService:
         return encoded_jwt
 
     async def authenticate_user(
-        self, username: EmailStr, password: str
+        self, email: EmailStr, password: str
     ) -> UserModel | None:
-        user = await self.uow.auth_repo.get_by_email(username)
+        user = await self.uow.auth_repo.get_by_email(email)
         if not user or not self.verify_password(password, user.password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -66,7 +67,8 @@ class AuthService:
         if existing_user:
             return None
         hashed_password = self.get_password_hash(password)
-        user = UserModel(email=email, password=hashed_password, username=email)
+        username = email.split("@")[0]
+        user = UserModel(email=email, password=hashed_password, username=username)
         self.uow.session.add(user)
         await self.uow.session.flush()
         await self.uow.session.refresh(user)
@@ -104,6 +106,21 @@ class AuthService:
             "sub": email,
             "exp": expire.timestamp(),
             "type": "email_verification",
+        }
+        encoded_jwt = jwt.encode(
+            to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        )
+        return encoded_jwt
+
+    @staticmethod
+    def create_password_reset_token(email: EmailStr) -> str:
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
+        )
+        to_encode = {
+            "sub": email,
+            "exp": expire.timestamp(),
+            "type": "password_reset",
         }
         encoded_jwt = jwt.encode(
             to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
@@ -184,3 +201,89 @@ class AuthService:
         return Token(
             access_token=new_access_token, refresh_token=new_refresh_token_db.token
         )
+
+    async def forgot_password(self, email: EmailStr):
+        user = await self.uow.auth_repo.get_by_email(email)
+        if user:
+            password_reset_token = self.create_password_reset_token(user.email)
+            await send_password_reset_email(email, password_reset_token)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден"
+            )
+
+    async def reset_password(self, token: str, new_password: str):
+        try:
+            payload = jwt.decode(
+                token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+            )
+            if payload.get("type") != "password_reset":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Неверный тип токена",
+                )
+            email: EmailStr = payload.get("sub")
+            if not email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Токен не содержит email",
+                )
+
+            user = await self.uow.auth_repo.get_by_email(email)
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Пользователь не найден",
+                )
+
+            hashed_password = self.get_password_hash(new_password)
+            user.password = hashed_password
+            self.uow.session.add(user)
+            await self.uow.session.flush()
+            return True
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Токен просрочен"
+            )
+        except jwt.InvalidTokenError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный токен"
+            )
+
+    async def login_with_google(self, code: str) -> UserModel:
+        token_url = "https://oauth2.googleapis.com/token"
+        params = {
+            "code": code,
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+            "grant_type": "authorization_code",
+        }
+        async with httpx.AsyncClient() as client:
+            response = await client.post(token_url, data=params)
+            response.raise_for_status()
+            token_data = response.json()
+
+        google_access_token = token_data["access_token"]
+        userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
+        headers = {"Authorization": f"Bearer {google_access_token}"}
+        async with httpx.AsyncClient() as client:
+            response = await client.get(userinfo_url, headers=headers)
+            response.raise_for_status()
+            user_info = response.json()
+
+        email = user_info["email"]
+        user = await self.uow.auth_repo.get_by_email(email)
+        if not user:
+            random_password = self.get_password_hash(secrets.token_urlsafe(16))
+            new_user = UserModel(
+                email=email,
+                username=user_info.get("name", email),
+                password=random_password,
+                is_verified=True,
+            )
+            self.uow.session.add(new_user)
+            await self.uow.session.flush()
+            await self.uow.session.refresh(new_user)
+            return new_user
+        return user
