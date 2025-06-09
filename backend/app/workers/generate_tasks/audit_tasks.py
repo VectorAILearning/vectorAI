@@ -74,7 +74,11 @@ async def generate_user_summary(
                 _msg("bot", "Предпочтение пользователя сгенерировано", "chat_info"),
                 session_id,
             )
-            if generate_tasks_context and generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
+            if (
+                generate_tasks_context
+                and generate_tasks_context.main_task_type
+                == TaskTypeEnum.generate_course
+            ):
                 if generate_tasks_context.deep != GenerateDeepEnum.user_summary.value:
                     job = await ctx["arq_queue"].enqueue_job(
                         "generate_course_base",

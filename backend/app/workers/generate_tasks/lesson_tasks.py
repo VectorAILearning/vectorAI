@@ -119,7 +119,9 @@ async def generate_lesson_content_plan(
                             finished_at=datetime.now(),
                         ),
                     )
-                    return [ContentOut.model_validate(content) for content in content_list]
+                    return [
+                        ContentOut.model_validate(content) for content in content_list
+                    ]
 
                 next_lesson = await uow.session.execute(
                     select(LessonModel)

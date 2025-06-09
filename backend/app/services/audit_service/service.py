@@ -126,7 +126,10 @@ class AuditDialogService:
             )
 
     async def create_user_preference_by_audit_history(
-        self, audit_history: str, sid: uuid.UUID | None = None, user_id: uuid.UUID | None = None
+        self,
+        audit_history: str,
+        sid: uuid.UUID | None = None,
+        user_id: uuid.UUID | None = None,
     ) -> PreferenceModel:
         summary = self.agent.summarize_profile_by_audit_history(audit_history)
         async with uow_context() as uow:

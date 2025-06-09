@@ -196,7 +196,11 @@ async def generate_course_base(
                 f"[generate_course] Структура курса сгенерирована для session_id={session_id}"
             )
 
-            if generate_tasks_context and generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
+            if (
+                generate_tasks_context
+                and generate_tasks_context.main_task_type
+                == TaskTypeEnum.generate_course
+            ):
                 if generate_tasks_context.deep != GenerateDeepEnum.course_base.value:
                     log.info(
                         f"[generate_course] Запуск генерации плана модулей для course_id={course.id}"
@@ -325,7 +329,10 @@ async def generate_course_plan(
                 course_id, user_pref_summary
             )
 
-        if generate_tasks_context and generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
+        if (
+            generate_tasks_context
+            and generate_tasks_context.main_task_type == TaskTypeEnum.generate_course
+        ):
             if generate_tasks_context.deep != GenerateDeepEnum.course_plan.value:
                 first_module = min(modules, key=lambda m: m.position)
                 job = await ctx["arq_queue"].enqueue_job(
