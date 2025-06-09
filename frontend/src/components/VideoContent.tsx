@@ -1,11 +1,11 @@
 import React from 'react'
 
 export default function VideoContent({videoContent}) {
-  console.log(videoContent)
   return (
-    <div>
+    <div className="flex flex-col items-center">
       <div className="font-semibold">{videoContent.title}</div>
-      <div>{videoContent.description}</div>
+      <div className='text-center'>{videoContent.description}</div>
+
       {videoContent.url && (
         <iframe width="560"
           height="315"
@@ -17,6 +17,7 @@ export default function VideoContent({videoContent}) {
           allowfullscreen>
         </iframe>
       )}
+      
     </div>
   )
 }

@@ -269,7 +269,7 @@ export default function LessonsPage() {
               <div className="mt-8">
                 <h2 className="text-2xl font-semibold mb-4 text-center">Контент урока</h2>
                 <ul className="space-y-4">
-                  
+                                    
                   {selectedLessons.contents.map((block: any, idx: number) => (
                     <li key={block.id || idx} className="p-4 rounded bg-base-200">
                       <div className="font-bold mb-1">

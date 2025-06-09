@@ -1,7 +1,14 @@
 import React from 'react'
+import ReactMarkdown from 'react-markdown';
 
 export default function TextContent({textContent}) {
+
+
     return (
-    <div>{textContent.text}</div>
+    <div>
+      <ReactMarkdown>
+        {textContent.text}
+      </ReactMarkdown>
+    </div>
   )
 }
