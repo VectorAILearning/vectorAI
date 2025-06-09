@@ -1,15 +1,13 @@
-import React from 'react'
+import React from "react";
 
-export default function ExamplesContent({examplesContent}) {
-
+export default function ExamplesContent({ examplesContent }) {
   return (
-    <div className='overflow-auto'>
+    <div className="overflow-auto">
       {examplesContent.examples.map((code) => (
         <pre>
-        <code>{code}</code>
+          <code>{code}</code>
         </pre>
       ))}
-      
     </div>
-  )
+  );
 }

@@ -293,9 +293,7 @@ export default function HomePage() {
               disabled={status !== "chating" || !canSend}
               className="text-base-content flex-1"
             />
-            <kbd className="kbd text-base-content">
-              Enter
-            </kbd>
+            <kbd className="kbd text-base-content">Enter</kbd>
           </label>
         </form>
         {botOptions && (

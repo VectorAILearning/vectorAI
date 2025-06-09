@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, use } from "react";
 import { FaMoon, FaSun } from "react-icons/fa";
 import { useNavigate, useParams, Link } from "react-router-dom";
 
@@ -52,6 +52,8 @@ const CoursePage: React.FC = () => {
       .catch((e) => console.log(e))
       .finally(() => setIsLoading(false));
   }, [courseId, navigate]);
+
+  console.log(isLoading);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -228,23 +230,27 @@ const CoursePage: React.FC = () => {
         <aside className="w-100 bg-base-200/90 p-1 overflow-y-auto text-base-content border-r border-base-300">
           {/* Sidebar content: Modules and Lessons */}
           <ul className="menu">
-            {selectedCourse?.modules?.map((module: any, idx: number) => (
-              <li key={idx}>
-                <a className="text-lg font-semibold">{module.title}</a>
-                <ul>
-                  {module.lessons?.map((lesson: any, lidx: number) => (
-                    <li key={lidx}>
-                      <Link
-                        to={`/course/${courseId}/lesson/${lesson.id}`}
-                        className="text-base"
-                      >
-                        {lesson.title}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
+            {isLoading ? (
+              <span className="loading loading-spinner loading-xl"></span>
+            ) : (
+              selectedCourse?.modules?.map((module: any, idx: number) => (
+                <li key={idx}>
+                  <a className="text-lg font-semibold">{module.title}</a>
+                  <ul>
+                    {module.lessons?.map((lesson: any, lidx: number) => (
+                      <li key={lidx}>
+                        <Link
+                          to={`/course/${courseId}/lesson/${lesson.id}`}
+                          className="text-base"
+                        >
+                          {lesson.title}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))
+            )}
           </ul>
         </aside>
       )}
@@ -259,26 +265,32 @@ const CoursePage: React.FC = () => {
           <p className="mb-8 text-base text-base-content/80 text-center">
             {selectedCourse?.description}
           </p>
-          {selectedCourse?.modules?.map((module: any, idx: number) => (
-            <div
-              key={idx}
-              className="mb-10 text-left bg-base-200 rounded-xl p-6 shadow-sm"
-            >
-              <h2 className="text-xl font-semibold mb-2">{module.title}</h2>
-              <p className="mb-3 text-base-content/70">{module.description}</p>
-              <ul className="list-disc ml-6">
-                {module.lessons?.map((lesson: any, lidx: number) => (
-                  <li key={lidx} className="mb-1">
-                    <span className="font-medium">{lesson.title}:</span>{" "}
-                    {lesson.description}{" "}
-                    <span className="text-xs text-base-content/50">
-                      ({lesson.estimated_time_hours} ч)
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {isLoading ? (
+            <span className="loading loading-spinner loading-xl"></span>
+          ) : (
+            selectedCourse?.modules?.map((module: any, idx: number) => (
+              <div
+                key={idx}
+                className="mb-10 text-left bg-base-200 rounded-xl p-6 shadow-sm"
+              >
+                <h2 className="text-xl font-semibold mb-2">{module.title}</h2>
+                <p className="mb-3 text-base-content/70">
+                  {module.description}
+                </p>
+                <ul className="list-disc ml-6">
+                  {module.lessons?.map((lesson: any, lidx: number) => (
+                    <li key={lidx} className="mb-1">
+                      <span className="font-medium">{lesson.title}:</span>{" "}
+                      {lesson.description}{" "}
+                      <span className="text-xs text-base-content/50">
+                        ({lesson.estimated_time_hours} ч)
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
         </div>
         <button className="btn btn-neutral btn-lg fixed bottom-4 right-4 z-50">
           Чат с поддержкой

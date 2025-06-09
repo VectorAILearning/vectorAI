@@ -1,14 +1,10 @@
-import React from 'react'
-import ReactMarkdown from 'react-markdown';
+import React from "react";
+import ReactMarkdown from "react-markdown";
 
-export default function TextContent({textContent}) {
-
-
-    return (
+export default function TextContent({ textContent }) {
+  return (
     <div>
-      <ReactMarkdown>
-        {textContent.text}
-      </ReactMarkdown>
+      <ReactMarkdown>{textContent.text}</ReactMarkdown>
     </div>
-  )
+  );
 }
