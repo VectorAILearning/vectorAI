@@ -45,8 +45,8 @@ class LearningRepository:
     async def create_course_by_json(
         self,
         course_json: dict,
-        user_id: str | None = None,
-        session_id: str | None = None,
+        user_id: uuid.UUID | None = None,
+        session_id: uuid.UUID | None = None,
     ) -> CourseModel:
         course_in = CourseIn(**course_json)
 
@@ -55,8 +55,8 @@ class LearningRepository:
             description=course_in.description,
             goal=course_in.goal,
             estimated_time_hours=course_in.estimated_time_hours,
-            user_id=uuid.UUID(user_id) if user_id else None,
-            session_id=uuid.UUID(session_id) if session_id else None,
+            user_id=user_id,
+            session_id=session_id,
         )
         self.db.add(course)
         await self.db.commit()

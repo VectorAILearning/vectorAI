@@ -37,7 +37,7 @@ async def generate_module_plan(
         user_id (uuid.UUID): id пользователя
         generate_tasks_context: контекст задач генераций
     Returns:
-        ModuleModel: модуль
+        list[LessonOut]: список уроков
     """
     log.info(
         f"[generate_module] Генерация модуля {module_id} для session_id={session_id}, user_id={user_id}"
@@ -68,7 +68,7 @@ async def generate_module_plan(
                 f"[generate_module] План уроков для модуля {module.title} сгенерирован"
             )
 
-            if generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
+            if generate_tasks_context and generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
                 if generate_tasks_context.deep != GenerateDeepEnum.module_plan.value:
                     next_module = await uow.session.execute(
                         select(ModuleModel)
@@ -114,9 +114,10 @@ async def generate_module_plan(
                             .limit(1)
                         )
                         first_module = first_module.scalar_one_or_none()
-                        first_lesson = min(
-                            first_module.lessons, key=lambda l: l.position
-                        )
+                        if not first_module:
+                            raise ValueError(f"Модуль не найден для курса {module.course_id}")
+                        
+                        first_lesson = min(first_module.lessons, key=lambda l: l.position)
                         job = await ctx["arq_queue"].enqueue_job(
                             "generate_lesson_content_plan",
                             first_lesson.id,
@@ -150,7 +151,7 @@ async def generate_module_plan(
                     finished_at=datetime.now(),
                 ),
             )
-            return [LessonOut.model_validate(lesson).model_dump() for lesson in lessons]
+            return [LessonOut.model_validate(lesson)for lesson in lessons]
     except Exception as e:
         log.exception(
             f"[generate_module] Ошибка при генерации модуля для session_id={session_id}, user_id={user_id}: {e}"
@@ -192,5 +193,5 @@ async def generate_module_plan(
                 _msg("system", "Ошибка при создании модуля", "module_creation_error"),
                 session_id,
             )
-            await redis.clear_course_generation_in_progress(session_id)
+            await redis.clear_course_generation_in_progress(str(session_id))
         raise

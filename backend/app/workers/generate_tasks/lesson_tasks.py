@@ -28,7 +28,7 @@ async def generate_lesson_content_plan(
     session_id: uuid.UUID | None = None,
     user_id: uuid.UUID | None = None,
     generate_tasks_context: GenerateTaskContext | None = None,
-) -> list[dict]:
+) -> list[ContentOut]:
     """
     Базовая генерация контент-плана урока (блоков контента в уроке). Название, описание, цель блоков контента.
     Args:
@@ -119,10 +119,7 @@ async def generate_lesson_content_plan(
                             finished_at=datetime.now(),
                         ),
                     )
-                    return [
-                        ContentOut.model_validate(content).model_dump()
-                        for content in content_list
-                    ]
+                    return [ContentOut.model_validate(content) for content in content_list]
 
                 next_lesson = await uow.session.execute(
                     select(LessonModel)
@@ -267,9 +264,7 @@ async def generate_lesson_content_plan(
                 finished_at=datetime.now(),
             ),
         )
-        return [
-            ContentOut.model_validate(content).model_dump() for content in content_list
-        ]
+        return [ContentOut.model_validate(content) for content in content_list]
     except Exception as e:
         log.exception(
             f"[generate_lesson_plan] Ошибка при генерации урока для session_id={session_id}, user_id={user_id}: {e}"

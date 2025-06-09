@@ -74,7 +74,7 @@ async def generate_user_summary(
                 _msg("bot", "Предпочтение пользователя сгенерировано", "chat_info"),
                 session_id,
             )
-            if generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
+            if generate_tasks_context and generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
                 if generate_tasks_context.deep != GenerateDeepEnum.user_summary.value:
                     job = await ctx["arq_queue"].enqueue_job(
                         "generate_course_base",
@@ -157,7 +157,7 @@ async def generate_user_summary(
                 ),
                 session_id,
             )
-            await redis.clear_course_generation_in_progress(session_id)
-            await redis.set_session_status(session_id, "course_generation_error")
+            await redis.clear_course_generation_in_progress(str(session_id))
+            await redis.set_session_status(str(session_id), "course_generation_error")
 
         raise

@@ -34,8 +34,8 @@ class GenerateTaskContext(BaseModel):
     main_task_id: str
     main_task_type: TaskTypeEnum
     deep: str | None = None
-    session_id: str | None = None
-    user_id: str | None = None
+    session_id: uuid.UUID | None = None
+    user_id: uuid.UUID | None = None
     params: dict | None = None
 
 
@@ -43,8 +43,8 @@ async def generate_course(
     ctx,
     audit_history: str,
     deep: str,
-    session_id: str | None = None,
-    user_id: str | None = None,
+    session_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
 ) -> TaskOut:
     """Генерация полного курса
     Args:
@@ -123,8 +123,8 @@ async def generate_course(
                 ),
             )
         if session_id:
-            await redis.clear_course_generation_in_progress(session_id)
-            await redis.set_session_status(session_id, "course_generation_error")
+            await redis.clear_course_generation_in_progress(str(session_id))
+            await redis.set_session_status(str(session_id), "course_generation_error")
         raise
 
 
@@ -164,6 +164,8 @@ async def generate_course_base(
                 ),
             )
             user_pref = await uow.audit_repo.get_by_id(user_pref_id)
+            if not user_pref:
+                raise ValueError(f"Preference {user_pref_id} not found")
             course = await LearningService(uow).create_course_by_user_preference(
                 user_pref, sid=session_id, user_id=user_id
             )
@@ -174,7 +176,7 @@ async def generate_course_base(
                     "description": course.description,
                     "estimated_time_hours": course.estimated_time_hours,
                 }
-                await redis.add_generated_course(session_id, course_data)
+                await redis.add_generated_course(str(session_id), course_data)
                 log.info(
                     f"[generate_course] Курс добавлен в redis для sid={session_id}"
                 )
@@ -194,7 +196,7 @@ async def generate_course_base(
                 f"[generate_course] Структура курса сгенерирована для session_id={session_id}"
             )
 
-            if generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
+            if generate_tasks_context and generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
                 if generate_tasks_context.deep != GenerateDeepEnum.course_base.value:
                     log.info(
                         f"[generate_course] Запуск генерации плана модулей для course_id={course.id}"
@@ -237,7 +239,7 @@ async def generate_course_base(
             )
 
             if session_id:
-                await redis.set_session_status(session_id, "course_created_done")
+                await redis.set_session_status(str(session_id), "course_created_done")
 
             return CourseOut.model_validate(course)
     except Exception as e:
@@ -272,8 +274,8 @@ async def generate_course_base(
                 _msg("system", "Ошибка при создании курса", "course_generation_error"),
                 session_id,
             )
-            await redis.clear_course_generation_in_progress(session_id)
-            await redis.set_session_status(session_id, "error")
+            await redis.clear_course_generation_in_progress(str(session_id))
+            await redis.set_session_status(str(session_id), "course_generation_error")
         raise
 
 
@@ -284,7 +286,7 @@ async def generate_course_plan(
     generate_tasks_context: GenerateTaskContext | None = None,
     session_id: uuid.UUID | None = None,
     user_id: uuid.UUID | None = None,
-) -> list[ModuleModel]:
+) -> list[ModuleOut]:
     """
     Базовая генерация курса (модулей в курсе). Название, описание, цель модулей.
     Args:
@@ -295,7 +297,7 @@ async def generate_course_plan(
         session_id(uuid.UUID): id сессии
         user_id(uuid.UUID): id пользователя
     Returns:
-        list[ModuleModel]: список модулей
+        list[ModuleOut]: список модулей
     """
     log.info(
         f"[generate_course_plan] Старт генерации плана модулей для course_id={course_id}, session_id={session_id}, user_id={user_id}"
@@ -323,7 +325,7 @@ async def generate_course_plan(
                 course_id, user_pref_summary
             )
 
-        if generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
+        if generate_tasks_context and generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
             if generate_tasks_context.deep != GenerateDeepEnum.course_plan.value:
                 first_module = min(modules, key=lambda m: m.position)
                 job = await ctx["arq_queue"].enqueue_job(
@@ -360,7 +362,7 @@ async def generate_course_plan(
                 finished_at=datetime.now(),
             ),
         )
-        return [ModuleOut.model_validate(module).model_dump() for module in modules]
+        return [ModuleOut.model_validate(module) for module in modules]
     except Exception as e:
         log.exception(
             f"[generate_module_plan] Ошибка при генерации плана модулей для session_id={session_id}: {e}"
@@ -401,6 +403,6 @@ async def generate_course_plan(
                 ),
                 session_id,
             )
-            await redis.clear_course_generation_in_progress(session_id)
-            await redis.set_session_status(session_id, "course_generation_error")
+            await redis.clear_course_generation_in_progress(str(session_id))
+            await redis.set_session_status(str(session_id), "course_generation_error")
         raise

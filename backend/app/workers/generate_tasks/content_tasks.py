@@ -27,7 +27,7 @@ async def generate_content(
     session_id: uuid.UUID | None = None,
     user_id: uuid.UUID | None = None,
     generate_tasks_context: GenerateTaskContext | None = None,
-):
+) -> ContentOut:
     """
     Генерация контента для блока контента в уроке. Сам контент.
     Args:
@@ -38,6 +38,8 @@ async def generate_content(
         user_id: id пользователя
         user_pref_summary: предпочтения пользователя
         generate_tasks_context: контекст задач генераций
+    Returns:
+        ContentOut: блок контента
     """
     try:
         redis = get_cache_service()
@@ -84,11 +86,8 @@ async def generate_content(
                 f"Контент успешно сгенерирован и сохранён для блока: content_block_id={content_block_id}"
             )
 
-            if generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
-                if (
-                    generate_tasks_context.deep
-                    != GenerateDeepEnum.lesson_content_plan.value
-                ):
+            if generate_tasks_context and generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
+                if (generate_tasks_context.deep != GenerateDeepEnum.lesson_content_plan.value):
                     next_content_block = await uow.session.execute(
                         select(ContentModel)
                         .where(ContentModel.lesson_id == lesson_id)
@@ -127,14 +126,8 @@ async def generate_content(
                             f"Задача на генерацию контента для блока {next_content_block.id} поставлена в очередь"
                         )
                     else:
-                        if (
-                            generate_tasks_context.deep
-                            == GenerateDeepEnum.first_lesson_content.value
-                        ):
-                            if (
-                                generate_tasks_context
-                                and generate_tasks_context.main_task_id
-                            ):
+                        if (generate_tasks_context.deep == GenerateDeepEnum.first_lesson_content.value):
+                            if (generate_tasks_context.main_task_id):
                                 parent_task = await wait_for_task_in_db(
                                     uow.task_repo, generate_tasks_context.main_task_id
                                 )
@@ -150,10 +143,9 @@ async def generate_content(
                                         finished_at=datetime.now(),
                                     ),
                                 )
-                            if session_id:
-                                await redis.clear_course_generation_in_progress(
-                                    session_id
-                                )
+                                if session_id:
+                                    await redis.clear_course_generation_in_progress(str(session_id))
+                                    await redis.set_session_status(str(session_id), "course_generation_done")
                         else:
                             next_lesson = await uow.session.execute(
                                 select(LessonModel)
@@ -251,10 +243,7 @@ async def generate_content(
                                     log.info(
                                         f"Нет следующего модуля после урока {lesson_id} и блока {content_block_id}, завершаем генерацию курса"
                                     )
-                                    if (
-                                        generate_tasks_context
-                                        and generate_tasks_context.main_task_id
-                                    ):
+                                    if (generate_tasks_context.main_task_id):
                                         parent_task = await wait_for_task_in_db(
                                             uow.task_repo,
                                             generate_tasks_context.main_task_id,
@@ -271,10 +260,9 @@ async def generate_content(
                                                 finished_at=datetime.now(),
                                             ),
                                         )
-                                    if session_id:
-                                        await redis.clear_course_generation_in_progress(
-                                            session_id
-                                        )
+                                        if session_id:
+                                            await redis.clear_course_generation_in_progress(str(session_id))
+                                            await redis.set_session_status(str(session_id), "course_generation_done")
 
             await TaskService(uow).partial_update_task(
                 ctx["job_id"],
@@ -286,7 +274,7 @@ async def generate_content(
                     finished_at=datetime.now(),
                 ),
             )
-            return ContentOut.model_validate(content_block).model_dump()
+            return ContentOut.model_validate(content_block)
 
     except Exception as e:
         log.exception(
@@ -294,8 +282,8 @@ async def generate_content(
         )
         async with uow_context() as uow:
             if session_id:
-                await redis.clear_course_generation_in_progress(session_id)
-                await redis.set_session_status(session_id, "course_generation_error")
+                await redis.clear_course_generation_in_progress(str(session_id))
+                await redis.set_session_status(str(session_id), "course_generation_error")
 
             await TaskService(uow).partial_update_task(
                 ctx["job_id"],

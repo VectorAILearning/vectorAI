@@ -1,5 +1,6 @@
 import json
 import logging
+import uuid
 
 from agents.audit_agent.agent import AuditAgent
 from models.base import PreferenceModel
@@ -120,12 +121,12 @@ class AuditDialogService:
                         "deep": GenerateDeepEnum.first_lesson_content.value,
                         "audit_history": history_full,
                     },
-                    session_id=sid,
+                    session_id=uuid.UUID(sid) if sid else None,
                 )
             )
 
     async def create_user_preference_by_audit_history(
-        self, audit_history: str, sid: str | None = None, user_id: str | None = None
+        self, audit_history: str, sid: uuid.UUID | None = None, user_id: uuid.UUID | None = None
     ) -> PreferenceModel:
         summary = self.agent.summarize_profile_by_audit_history(audit_history)
         async with uow_context() as uow:

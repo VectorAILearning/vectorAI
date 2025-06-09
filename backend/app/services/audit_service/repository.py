@@ -24,12 +24,12 @@ class AuditRepository(BaseRepository):
     async def create_user_preference(
         self,
         summary: str,
-        user_id: str = None,
-        sid: str = None,
+        user_id: uuid.UUID | None = None,
+        sid: uuid.UUID | None = None,
     ) -> PreferenceModel:
         preference = PreferenceModel(
-            user_id=uuid.UUID(user_id) if user_id else None,
-            session_id=uuid.UUID(sid) if sid else None,
+            user_id=user_id,
+            session_id=sid,
             summary=summary,
         )
         self.session.add(preference)

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 
 class TaskIn(BaseModel):
-    id: UUID = None
+    id: UUID
     parent_id: UUID | None = None
     task_type: TaskTypeEnum
     params: Any | None = None

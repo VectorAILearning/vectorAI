@@ -23,8 +23,8 @@ class LearningService:
     async def create_course_by_user_preference(
         self,
         preference: PreferenceModel,
-        sid: str | None = None,
-        user_id: str | None = None,
+        sid: uuid.UUID | None = None,
+        user_id: uuid.UUID | None = None,
     ) -> CourseModel:
         course_plan = self.agent.generate_course_plan(preference.summary)
         log.info(f"Course plan: {course_plan}")
