@@ -1,5 +1,15 @@
 import { useState, useEffect, useRef } from "react";
+import { FaMoon, FaSun } from "react-icons/fa";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import TextContent from "../components/TextContent";
+import VideoContent from "../components/VideoContent";
+import DialogContent from "../components/DialogContent";
+import TestContent from "../components/TestContent";
+import QuestionContent from "../components/QuestionContent";
+import ReflectionContent from "../components/ReflectionContent";
+import MistakesContent from "../components/MistakesContent";
+import ExamplesContent from "../components/ExamplesContent";
+import PracticeContent from "../components/PracticeContent";
 
 export default function LessonsPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -14,6 +24,16 @@ export default function LessonsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const { lessonId, courseId } = useParams();
+  function getInitialTheme(): "light" | "dark" {
+    const saved = localStorage.getItem("theme");
+    if (saved === "light" || saved === "dark") return saved;
+    const system = window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+    localStorage.setItem("theme", system);
+    return system;
+  }
+  const [theme, setTheme] = useState<"light" | "dark">(getInitialTheme());
 
   useEffect(() => {
     const apiHost = import.meta.env.VITE_API_HOST;
@@ -85,6 +105,10 @@ export default function LessonsPage() {
         console.log(data);
       });
   };
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   return (
     <div className="flex h-screen bg-base-100 text-lg">
@@ -177,6 +201,21 @@ export default function LessonsPage() {
           </div>
         </div>
         <div className="flex items-center space-x-4 justify-end w-1/3">
+          <label className="flex cursor-pointer gap-2 items-center">
+            <FaSun
+              className={`transition-colors ${theme === "light" ? "text-yellow-400" : "text-gray-400"}`}
+            />
+            <input
+              type="checkbox"
+              className="toggle"
+              checked={theme === "dark"}
+              onChange={(e) => setTheme(e.target.checked ? "dark" : "light")}
+              aria-label="Переключить тему"
+            />
+            <FaMoon
+              className={`transition-colors ${theme === "dark" ? "text-blue-400" : "text-gray-400"}`}
+            />
+          </label>
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -220,24 +259,28 @@ export default function LessonsPage() {
         <aside className="w-100 bg-base-200/90 p-1 overflow-y-auto text-base-content border-r border-base-300">
           {/* Sidebar content: Modules and Lessons */}
           <ul className="menu">
-            {selectedCourse?.modules?.map((module: any, idx: number) => (
-              <li key={idx}>
-                <a className="text-lg font-semibold">{module.title}</a>
-                <ul>
-                  {module.lessons?.map((lesson: any, lidx: number) => (
-                    <li key={lidx}>
-                      <Link
-                        to={`/course/${courseId}/lesson/${lesson.id}`}
-                        className="text-base"
-                        onClick={() => getLessonId(lesson.id)}
-                      >
-                        {lesson.title}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
+            {isLoading ? (
+              <span className="loading loading-spinner loading-xl"></span>
+            ) : (
+              selectedCourse?.modules?.map((module: any, idx: number) => (
+                <li key={idx}>
+                  <a className="text-lg font-semibold">{module.title}</a>
+                  <ul>
+                    {module.lessons?.map((lesson: any, lidx: number) => (
+                      <li key={lidx}>
+                        <Link
+                          to={`/course/${courseId}/lesson/${lesson.id}`}
+                          className="text-base"
+                          onClick={() => getLessonId(lesson.id)}
+                        >
+                          {lesson.title}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))
+            )}
           </ul>
         </aside>
       )}
@@ -260,81 +303,61 @@ export default function LessonsPage() {
                     Контент урока
                   </h2>
                   <ul className="space-y-4">
-                    {selectedLessons.contents.map((block: any, idx: number) => (
-                      <li
-                        key={block.id || idx}
-                        className="p-4 rounded bg-base-200"
-                      >
-                        <div className="font-bold mb-1">
-                          {block.position}. {block.type.toUpperCase()}
-                        </div>
-                        {block.type === "text" && (
-                          <div>{block.content.text}</div>
-                        )}
-                        {block.type === "video" && (
-                          <div>
-                            <div className="font-semibold">
-                              {block.content.title}
+                    {isLoading ? (
+                      <span className="loading loading-spinner loading-xl"></span>
+                    ) : (
+                      selectedLessons.contents.map(
+                        (block: any, idx: number) => (
+                          <li
+                            key={block.id || idx}
+                            className="p-4 rounded bg-base-200"
+                          >
+                            <div className="font-bold mb-1">
+                              {block.position}. {block.type.toUpperCase()}
+                              <p></p>
                             </div>
-                            <div>{block.content.description}</div>
-                            {block.content.url && (
-                              <a
-                                href={block.content.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary underline"
-                              >
-                                Смотреть видео
-                              </a>
+                            {block.type === "text" && (
+                              <TextContent textContent={block.content} />
                             )}
-                          </div>
-                        )}
-                        {block.type === "dialog" && (
-                          <div>
-                            {block.content.dialog?.map(
-                              (rep: any, i: number) => (
-                                <div key={i}>
-                                  <span className="font-semibold">
-                                    {rep.role}:
-                                  </span>{" "}
-                                  {rep.text}
-                                </div>
-                              ),
+                            {block.type === "video" && (
+                              <VideoContent videoContent={block.content} />
                             )}
-                          </div>
-                        )}
-                        {block.type === "open_answer" && (
-                          <div>
-                            <span className="font-semibold">Задание:</span>{" "}
-                            {block.content.question}
-                          </div>
-                        )}
-                        {block.type === "reflection" && (
-                          <div>
-                            <span className="font-semibold">Рефлексия:</span>{" "}
-                            {block.content.prompt}
-                          </div>
-                        )}
-                        {block.type === "test" && (
-                          <div>
-                            <div className="font-semibold">
-                              {block.content.question}
-                            </div>
-                            <ul className="list-disc ml-6">
-                              {block.content.options?.map(
-                                (opt: string, i: number) => (
-                                  <li key={i}>{opt}</li>
-                                ),
-                              )}
-                            </ul>
-                            <div className="text-xs text-base-content/60 mt-1">
-                              <span className="font-semibold">Ответ:</span>{" "}
-                              {block.content.answer}
-                            </div>
-                          </div>
-                        )}
-                      </li>
-                    ))}
+                            {block.type === "examples" && (
+                              <ExamplesContent
+                                examplesContent={block.content}
+                              />
+                            )}
+                            {block.type === "mistakes" && (
+                              <MistakesContent
+                                mistakesContent={block.content}
+                              />
+                            )}
+                            {block.type === "dialog" && (
+                              <DialogContent dialogContent={block.content} />
+                            )}
+                            {block.type === "practice" && (
+                              <PracticeContent
+                                practiceContent={block.content}
+                              />
+                            )}
+
+                            {block.type === "open_answer" && (
+                              <TestContent testContent={block.content} />
+                            )}
+                            {block.type === "reflection" && (
+                              <ReflectionContent
+                                reflectionContent={block.content}
+                              />
+                            )}
+                            {block.type === "test" && (
+                              <QuestionContent
+                                questionContent={block.content}
+                              />
+                            )}
+                          </li>
+                        ),
+                      )
+                    )}
                   </ul>
                 </div>
               )}
