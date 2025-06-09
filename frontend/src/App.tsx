@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import AuthPage from "./pages/AuthPage";
 import CoursesPage from "./pages/CoursesPage";
@@ -9,6 +9,7 @@ import MainLayout from "./pages/MainLayout.tsx";
 import UserProfilePage from "./pages/UserProfilePage.tsx";
 import LessonsPage from "./pages/LessonsPage.tsx";
 import CourseRedirectPage from "./pages/CourseRedirectPage.tsx";
+import GenerateTasksPage from "./pages/GenerateTasksPage.tsx";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/auth/changepass" element={<ChangePasswordPage />} />
           <Route path="/auth/register" element={<RegisterPage />} />
           <Route path="/profile" element={<UserProfilePage />} />
+          <Route path="/generate_tasks" element={<GenerateTasksPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
