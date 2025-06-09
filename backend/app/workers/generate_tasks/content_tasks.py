@@ -1,52 +1,58 @@
+import json
 import logging
+import uuid
+from datetime import datetime
 
 from models import ContentModel, CourseModel, LessonModel, ModuleModel
-from models.task import TaskTypeEnum
-from schemas.task import TaskIn
+from models.task import TaskStatusEnum, TaskTypeEnum
+from schemas.course import ContentOut
+from schemas.task import TaskIn, TaskPatch
 from services import get_cache_service
 from services.content_service.service import ContentService
 from services.task_service.service import TaskService
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from utils.uow import uow_context
-from workers.generate_tasks.generate_tasks import GenerateDeepEnum
+from utils import uow_context
+from utils.task_utils import wait_for_task_in_db
+from workers.generate_tasks.course_tasks import GenerateDeepEnum, GenerateTaskContext
 
 log = logging.getLogger(__name__)
 
 
-async def generate_block_content(
+async def generate_content(
     ctx,
-    content_block_id: str,
-    lesson_id: str,
+    content_block_id: uuid.UUID,
+    lesson_id: uuid.UUID,
     user_pref_summary: str,
-    generate_tasks_context: dict,
+    session_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    generate_tasks_context: GenerateTaskContext | None = None,
 ):
     """
-    Генерация контента для блока, запуск генерации блоков контента следующих уроков.
+    Генерация контента для блока контента в уроке. Сам контент.
     Args:
         ctx: контекст
         content_block_id: id блока контента
         lesson_id: id урока
+        session_id: id сессии
+        user_id: id пользователя
         user_pref_summary: предпочтения пользователя
         generate_tasks_context: контекст задач генераций
     """
-    sid = generate_tasks_context["params"].get("sid")
-    user_id = generate_tasks_context["params"].get("user_id")
-    generate_params = generate_tasks_context["params"]
-    generate_tasks_context["task_type"] = TaskTypeEnum.generate_content.value
-
     try:
         redis = get_cache_service()
         async with uow_context() as uow:
-            await TaskService(uow).create_task(
-                TaskIn(
-                    id=ctx["job_id"],
-                    task_type=generate_tasks_context.get("task_type"),
-                    params=generate_tasks_context.get("params"),
-                    parent_id=generate_tasks_context.get("parent_task_id"),
-                )
+            task = await wait_for_task_in_db(uow.task_repo, ctx["job_id"])
+            if not task:
+                raise Exception(f"Task {ctx['job_id']} not found in DB")
+
+            await TaskService(uow).partial_update_task(
+                ctx["job_id"],
+                TaskPatch(
+                    status=TaskStatusEnum.in_progress,
+                    started_at=datetime.now(),
+                ),
             )
-            generate_tasks_context["parent_task_id"] = ctx["job_id"]
             content_block = await uow.session.get(
                 ContentModel,
                 content_block_id,
@@ -59,33 +65,30 @@ async def generate_block_content(
                     .selectinload(LessonModel.contents)
                 ],
             )
-            lesson = content_block.lesson if content_block else None
-            if not content_block or not lesson:
+            if not content_block:
+                log.error(f"Блок контента {content_block_id} не найден")
+                raise ValueError(f"Блок контента {content_block_id} не найден")
+
+            lesson = content_block.lesson
+            if not lesson:
                 log.error(
                     f"Block or lesson not found: content_block_id={content_block_id}, lesson_id={lesson_id}"
                 )
-                return
+                raise ValueError(f"Урок {lesson_id} не найден")
+
             log.debug(
                 f"Начинаю генерацию контента для блока: content_block_id={content_block_id}, type={content_block.type}, description={content_block.description}, goal={content_block.goal}"
             )
-            try:
-                await ContentService(uow).generate_content_by_block(content_block)
-                log.debug(
-                    f"Контент успешно сгенерирован и сохранён для блока: content_block_id={content_block_id}"
-                )
-            except Exception as e:
-                log.exception(
-                    f"Ошибка при генерации контента для блока: content_block_id={content_block_id}, error={e}"
-                )
-                if sid:
-                    await redis.clear_course_generation_in_progress(sid)
-                return
+            await ContentService(uow).generate_content_by_block(content_block)
+            log.debug(
+                f"Контент успешно сгенерирован и сохранён для блока: content_block_id={content_block_id}"
+            )
 
-            if (
-                generate_tasks_context["main_task_type"]
-                == TaskTypeEnum.generate_course.value
-            ):
-                if generate_params.get("deep") != GenerateDeepEnum.lesson.value:
+            if generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
+                if (
+                    generate_tasks_context.deep
+                    != GenerateDeepEnum.lesson_content_plan.value
+                ):
                     next_content_block = await uow.session.execute(
                         select(ContentModel)
                         .where(ContentModel.lesson_id == lesson_id)
@@ -96,22 +99,62 @@ async def generate_block_content(
                         log.info(
                             f"Следующий блок найден: id={next_content_block.id}, type={next_content_block.type}, position={next_content_block.position}"
                         )
-                        await ctx["arq_queue"].enqueue_job(
-                            "generate_block_content",
-                            content_block_id=str(next_content_block.id),
-                            lesson_id=lesson_id,
-                            user_pref_summary=user_pref_summary,
-                            generate_tasks_context=generate_tasks_context,
+                        job = await ctx["arq_queue"].enqueue_job(
+                            "generate_content",
+                            next_content_block.id,
+                            lesson_id,
+                            user_pref_summary,
+                            session_id,
+                            user_id,
+                            generate_tasks_context,
                             _queue_name="course_generation",
+                        )
+                        await TaskService(uow).create_task(
+                            TaskIn(
+                                id=job.job_id,
+                                task_type=TaskTypeEnum.generate_content,
+                                params={
+                                    "content_block_id": str(next_content_block.id),
+                                    "lesson_id": str(lesson_id),
+                                    "user_pref_summary": user_pref_summary,
+                                },
+                                session_id=session_id,
+                                user_id=user_id,
+                                parent_id=ctx["job_id"],
+                            )
                         )
                         log.info(
                             f"Задача на генерацию контента для блока {next_content_block.id} поставлена в очередь"
                         )
                     else:
                         if (
-                            generate_params.get("deep")
-                            != GenerateDeepEnum.first_lesson.value
+                            generate_tasks_context.deep
+                            == GenerateDeepEnum.first_lesson_content.value
                         ):
+                            if (
+                                generate_tasks_context
+                                and generate_tasks_context.main_task_id
+                            ):
+                                parent_task = await wait_for_task_in_db(
+                                    uow.task_repo, generate_tasks_context.main_task_id
+                                )
+                                if not parent_task:
+                                    raise Exception(
+                                        f"Task {generate_tasks_context.main_task_id} not found in DB"
+                                    )
+                                await TaskService(uow).partial_update_task(
+                                    generate_tasks_context.main_task_id,
+                                    TaskPatch(
+                                        status=TaskStatusEnum.success,
+                                        result="course_generation_done",
+                                        finished_at=datetime.now(),
+                                    ),
+                                )
+                            if session_id:
+                                await redis.clear_course_generation_in_progress(
+                                    session_id
+                                )
+                        else:
                             next_lesson = await uow.session.execute(
                                 select(LessonModel)
                                 .where(LessonModel.module_id == lesson.module_id)
@@ -125,16 +168,34 @@ async def generate_block_content(
                                 first_content_block = min(
                                     next_lesson.contents, key=lambda b: b.position
                                 )
-                                await ctx["arq_queue"].enqueue_job(
-                                    "generate_block_content",
-                                    content_block_id=str(first_content_block.id),
-                                    lesson_id=str(next_lesson.id),
-                                    user_pref_summary=user_pref_summary,
+                                job = await ctx["arq_queue"].enqueue_job(
+                                    "generate_content",
+                                    first_content_block.id,
+                                    next_lesson.id,
+                                    user_pref_summary,
+                                    session_id=session_id,
+                                    user_id=user_id,
                                     generate_tasks_context=generate_tasks_context,
                                     _queue_name="course_generation",
                                 )
                                 log.info(
                                     f"Задача на генерацию контента для блока {first_content_block.id} поставлена в очередь"
+                                )
+                                await TaskService(uow).create_task(
+                                    TaskIn(
+                                        id=job.job_id,
+                                        task_type=TaskTypeEnum.generate_content,
+                                        params={
+                                            "content_block_id": str(
+                                                first_content_block.id
+                                            ),
+                                            "lesson_id": str(next_lesson.id),
+                                            "user_pref_summary": user_pref_summary,
+                                        },
+                                        session_id=session_id,
+                                        user_id=user_id,
+                                        parent_id=ctx["job_id"],
+                                    )
                                 )
                             else:
                                 module = lesson.module
@@ -155,13 +216,33 @@ async def generate_block_content(
                                         next_module_first_lesson.contents,
                                         key=lambda b: b.position,
                                     )
-                                    await ctx["arq_queue"].enqueue_job(
-                                        "generate_block_content",
-                                        content_block_id=str(first_content_block.id),
-                                        lesson_id=str(next_module_first_lesson.id),
-                                        user_pref_summary=user_pref_summary,
+                                    job = await ctx["arq_queue"].enqueue_job(
+                                        "generate_content",
+                                        first_content_block.id,
+                                        next_module_first_lesson.id,
+                                        user_pref_summary,
+                                        session_id=session_id,
+                                        user_id=user_id,
                                         generate_tasks_context=generate_tasks_context,
                                         _queue_name="course_generation",
+                                    )
+                                    await TaskService(uow).create_task(
+                                        TaskIn(
+                                            id=job.job_id,
+                                            task_type=TaskTypeEnum.generate_content,
+                                            params={
+                                                "content_block_id": str(
+                                                    first_content_block.id
+                                                ),
+                                                "lesson_id": str(
+                                                    next_module_first_lesson.id
+                                                ),
+                                                "user_pref_summary": user_pref_summary,
+                                            },
+                                            session_id=session_id,
+                                            user_id=user_id,
+                                            parent_id=ctx["job_id"],
+                                        )
                                     )
                                     log.info(
                                         f"Задача на генерацию контента для блока {first_content_block.id} поставлена в очередь"
@@ -170,18 +251,74 @@ async def generate_block_content(
                                     log.info(
                                         f"Нет следующего модуля после урока {lesson_id} и блока {content_block_id}, завершаем генерацию курса"
                                     )
-                                    if sid:
-                                        await redis.clear_course_generation_in_progress(
-                                            sid
+                                    if (
+                                        generate_tasks_context
+                                        and generate_tasks_context.main_task_id
+                                    ):
+                                        parent_task = await wait_for_task_in_db(
+                                            uow.task_repo,
+                                            generate_tasks_context.main_task_id,
                                         )
-                        else:
-                            if sid:
-                                await redis.clear_course_generation_in_progress(sid)
+                                        if not parent_task:
+                                            raise Exception(
+                                                f"Task {generate_tasks_context.main_task_id} not found in DB"
+                                            )
+                                        await TaskService(uow).partial_update_task(
+                                            generate_tasks_context.main_task_id,
+                                            TaskPatch(
+                                                status=TaskStatusEnum.success,
+                                                result="course_generation_done",
+                                                finished_at=datetime.now(),
+                                            ),
+                                        )
+                                    if session_id:
+                                        await redis.clear_course_generation_in_progress(
+                                            session_id
+                                        )
+
+            await TaskService(uow).partial_update_task(
+                ctx["job_id"],
+                TaskPatch(
+                    status=TaskStatusEnum.success,
+                    result=json.loads(
+                        ContentOut.model_validate(content_block).model_dump_json()
+                    ),
+                    finished_at=datetime.now(),
+                ),
+            )
+            return ContentOut.model_validate(content_block).model_dump()
 
     except Exception as e:
         log.exception(
-            f"[generate_block_content] Ошибка при генерации блока для sid={sid}: {e}"
+            f"[generate_block_content] Ошибка при генерации блока для session_id={session_id}, user_id={user_id}: {e}"
         )
-        if sid:
-            await redis.clear_course_generation_in_progress(sid)
+        async with uow_context() as uow:
+            if session_id:
+                await redis.clear_course_generation_in_progress(session_id)
+                await redis.set_session_status(session_id, "course_generation_error")
+
+            await TaskService(uow).partial_update_task(
+                ctx["job_id"],
+                TaskPatch(
+                    status=TaskStatusEnum.failed,
+                    error_message=str(e),
+                    finished_at=datetime.now(),
+                ),
+            )
+            if generate_tasks_context and generate_tasks_context.main_task_id:
+                parent_task = await wait_for_task_in_db(
+                    uow.task_repo, generate_tasks_context.main_task_id
+                )
+                if not parent_task:
+                    raise Exception(
+                        f"Task {generate_tasks_context.main_task_id} not found in DB"
+                    )
+                await TaskService(uow).partial_update_task(
+                    generate_tasks_context.main_task_id,
+                    TaskPatch(
+                        status=TaskStatusEnum.failed,
+                        error_message=str(e),
+                        finished_at=datetime.now(),
+                    ),
+                )
         raise

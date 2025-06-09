@@ -72,7 +72,7 @@ export default function Chat() {
             setMessages(data.messages);
             const last = data.messages.at(-1);
             if (last?.type === "course_created_done") {
-              setStatus("course_created");
+              setStatus("course_created_done");
               ws.close();
             }
           }
@@ -84,7 +84,7 @@ export default function Chat() {
           setStatus("course_creating");
         }
         if (data.type === "course_created_done") {
-          setStatus("course_created");
+          setStatus("course_created_done");
           ws.close();
           return;
         }
@@ -139,7 +139,7 @@ export default function Chat() {
     handleWsMessage,
     {
       shouldReconnect:
-        status !== "course_created" &&
+        status !== "course_created_done" &&
         status !== "no_subscription" &&
         readyToConnect,
       reconnectDelay: 2000,
@@ -221,7 +221,7 @@ export default function Chat() {
       ? "Пожалуйста, авторизуйтесь или купите подписку, чтобы продолжить."
       : !connected && status === "chating"
         ? "Восстанавливаем соединение..."
-        : status === "course_created"
+        : status === "course_created_done"
           ? "Курс создан! Получите его ниже."
           : status !== "chating" && messages.length
             ? "Ждём ответа бота..."
@@ -303,7 +303,7 @@ export default function Chat() {
               Сбросить чат
             </button>
           )}
-          {status === "course_created" && (
+          {status === "course_created_done" && (
             <button
               className="btn btn-primary mt-4"
               onClick={() => navigate(`/course/${curses[0].id}`)}

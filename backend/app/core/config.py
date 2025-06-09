@@ -37,6 +37,11 @@ class Settings(BaseSettings):
 
     DOMAIN: str = "http://127.0.0.1:8000"
     EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES: int = 60
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
+
+    GOOGLE_CLIENT_ID: str
+    GOOGLE_CLIENT_SECRET: str
+    GOOGLE_REDIRECT_URI: str
 
     @field_validator("REDIS_URL", mode="before")
     def assemble_redis_url(cls, v, values):

@@ -1,9 +1,18 @@
+import logging
+
 from agents.base_agent import BaseAgent
 from core.config import openai_settings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from .prompts import HUMAN_PROMPT, SYSTEM_PROMPT
+from .prompts import (
+    HUMAN_AUDIT_PROMPT,
+    HUMAN_SUMMARY_PROMPT,
+    SYSTEM_AUDIT_PROMPT,
+    SYSTEM_SUMMARY_PROMPT,
+)
+
+log = logging.getLogger(__name__)
 
 
 class AuditAgent(BaseAgent):
@@ -16,29 +25,28 @@ class AuditAgent(BaseAgent):
         self.max_questions = openai_settings.AUDIT_MAX_QUESTIONS
         prompt_template = ChatPromptTemplate.from_messages(
             [
-                ("system", SYSTEM_PROMPT.format(n=self.max_questions)),
-                ("human", HUMAN_PROMPT),
+                ("system", SYSTEM_AUDIT_PROMPT),
+                ("human", HUMAN_AUDIT_PROMPT),
             ]
         )
         super().__init__(llm=llm, prompt_template=prompt_template)
 
-    @staticmethod
-    def get_initial_question(client_prompt: str) -> str:
-        return (
-            f"Пользователь хочет изучить: {client_prompt}\n"
-            "Задай первый ключевой вопрос, чтобы уточнить цель или опыт."
+    def build_question_prompt(
+        self, client_prompt: str, history: str | None = None
+    ) -> dict:
+        return self.call_json_llm(
+            input_data={
+                "max_questions": self.max_questions,
+                "client_prompt": client_prompt,
+                "history": history,
+            }
         )
 
-    @staticmethod
-    def next_question_prompt(history: str) -> str:
-        return (
-            f"История диалога:\n{history}\n"
-            "Предложи СЛЕДУЮЩИЙ единственный вопрос, который уточнит недостающий аспект. "
+    def summarize_profile_by_audit_history(self, audit_history: str) -> str:
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", SYSTEM_SUMMARY_PROMPT),
+                ("human", HUMAN_SUMMARY_PROMPT),
+            ]
         )
-
-    def summarize_profile_prompt(self, history: str) -> str:
-        prompt = (
-            f"История вопросов и ответов:\n{history}\n"
-            "Сделай краткое, но информативное описание пользователя, его цели, уровня и мотивации в одном абзаце для персонализации онлайн-курса. "
-        )
-        return self.call_llm({"prompt": prompt})
+        return self.call_llm(input_data={"history": audit_history}, prompt=prompt)

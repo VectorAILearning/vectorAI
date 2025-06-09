@@ -17,6 +17,7 @@ export default function HomePage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [wsTimestamp, setWsTimestamp] = useState(Date.now());
+  const [botOptions, setBotOptions] = useState<string[] | null>(null);
   const navigate = useNavigate();
   const chatRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -53,27 +54,11 @@ export default function HomePage() {
           return;
         }
 
-        if (data.type === "session_info") {
-          if (Array.isArray(data.messages)) {
-            data.messages.forEach((m: Message) => {
-              if (m.id) seenRef.current.add(m.id);
-            });
-            setMessages(data.messages);
-            const last = data.messages.at(-1);
-            if (last?.type === "course_created_done") {
-              setStatus("course_created");
-              ws.close();
-            }
-          }
-          if (typeof data.reset_count === "number")
-            setResetCount(data.reset_count);
-          return;
-        }
         if (data.type === "course_created_start") {
           setStatus("course_creating");
         }
         if (data.type === "course_created_done") {
-          setStatus("course_created");
+          setStatus("course_created_done");
           ws.close();
           return;
         }
@@ -81,9 +66,24 @@ export default function HomePage() {
           data.who = "bot";
         addIfNew(data);
         setInput("");
+        if (data.who === "bot" && data.type === "chat") {
+          try {
+            const parsed = JSON.parse(data.text);
+            if (parsed.options && Array.isArray(parsed.options)) {
+              setBotOptions(parsed.options);
+            } else {
+              setBotOptions(null);
+            }
+          } catch {
+            setBotOptions(null);
+          }
+        } else {
+          setBotOptions(null);
+        }
       } catch {
         addIfNew({ text: event.data, who: "bot", type: "chat" });
         setInput("");
+        setBotOptions(null);
       }
     },
     [addIfNew],
@@ -96,6 +96,25 @@ export default function HomePage() {
     if (typeof data.session_id === "string") {
       setSessionId(data.session_id);
       setIsSessionReady(true);
+    }
+    if (Array.isArray(data.messages)) {
+      const last = data.messages.at(-1);
+      if (last && last.who === "bot" && last.type === "chat") {
+        try {
+          const parsed = JSON.parse(last.text);
+          if (parsed.options && Array.isArray(parsed.options)) {
+            setBotOptions(parsed.options);
+          } else {
+            setBotOptions(null);
+          }
+        } catch {
+          setBotOptions(null);
+        }
+      } else {
+        setBotOptions(null);
+      }
+    } else {
+      setBotOptions(null);
     }
   }, []);
 
@@ -128,7 +147,7 @@ export default function HomePage() {
     handleWsMessage,
     {
       shouldReconnect:
-        status !== "course_created" &&
+        status !== "course_created_done" &&
         status !== "no_subscription" &&
         readyToConnect,
       reconnectDelay: 2000,
@@ -174,6 +193,7 @@ export default function HomePage() {
       addIfNew(msg);
       send(JSON.stringify(msg));
       setInput("");
+      setBotOptions(null);
     }
   };
 
@@ -210,7 +230,7 @@ export default function HomePage() {
       ? "Пожалуйста, авторизуйтесь или купите подписку, чтобы продолжить."
       : !connected && status === "chating"
         ? "Восстанавливаем соединение..."
-        : status === "course_created"
+        : status === "course_created_done"
           ? "Курс создан! Получите его ниже."
           : status !== "chating" && messages.length
             ? "Ждём ответа бота..."
@@ -237,9 +257,21 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const renderBotMessage = useCallback((m: Message) => {
+    if (m.who === "bot" && m.type === "chat") {
+      try {
+        const parsed = JSON.parse(m.text);
+        return parsed.question ?? m.text;
+      } catch {
+        return m.text;
+      }
+    }
+    return m.text;
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col items-center bg-base-100">
-      <div className="w-full max-w-md flex flex-col gap-4 flex-1 pt-8">
+      <div className="w-full max-w-lg flex flex-col gap-4 flex-1 pt-8">
         <h1 className="text-5xl font-bold text-center mb-2 text-base-content">
           Твоё <span className="text-primary">развитие</span>
         </h1>
@@ -248,7 +280,10 @@ export default function HomePage() {
         </p>
 
         <form className="flex gap-2 w-full" onSubmit={handleSubmit}>
-          <label className="input input-bordered input-lg w-full flex items-center gap-2 bg-base-200 border-base-300 text-base-content">
+          <label
+            className="input input-bordered input-lg w-full flex items-center gap-2 
+            bg-base-200 border-base-300 text-base-content"
+          >
             <input
               ref={inputRef}
               type="text"
@@ -256,13 +291,30 @@ export default function HomePage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={status !== "chating" || !canSend}
-              className="bg-base-200 text-base-content flex-1"
+              className="text-base-content flex-1"
             />
-            <kbd className="kbd kbd-sm text-base-content bg-base-100 border-base-300">
+            <kbd className="kbd text-base-content">
               Enter
             </kbd>
           </label>
         </form>
+        {botOptions && (
+          <div className="flex flex-row flex-wrap gap-2">
+            {botOptions.map((opt, idx) => (
+              <div
+                key={idx}
+                className="cursor-pointer bg-primary rounded px-3 py-1 hover:scale-105 \
+                transition text-xs w-auto whitespace-pre-line text-white"
+                onClick={() => {
+                  setInput(opt);
+                  inputRef.current?.focus();
+                }}
+              >
+                {opt}
+              </div>
+            ))}
+          </div>
+        )}
 
         {messages.length > 0 && (
           <div
@@ -271,7 +323,7 @@ export default function HomePage() {
             style={{ minHeight: 200, maxHeight: 400 }}
           >
             {messages
-              .filter((m) => m.type === "chat")
+              .filter((m) => m.type === "chat" || m.type === "chat_info")
               .map((m, i) => (
                 <div
                   key={m.id || i}
@@ -280,7 +332,7 @@ export default function HomePage() {
                   <div
                     className={`chat-bubble ${m.who === "user" ? "chat-bubble-primary" : "bg-base-100 text-base-content border border-base-300"}`}
                   >
-                    {m.text}
+                    {renderBotMessage(m)}
                   </div>
                 </div>
               ))}
@@ -299,7 +351,7 @@ export default function HomePage() {
               Сбросить чат
             </button>
           )}
-          {status === "course_created" && (
+          {status === "course_created_done" && (
             <button
               className="btn btn-primary mt-4"
               onClick={() => navigate("/course")}

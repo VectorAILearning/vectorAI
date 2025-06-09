@@ -18,7 +18,7 @@ class ChatMessage(BaseModel):
 
 
 async def push_and_publish(
-    msg: dict | ChatMessage, session_id: str | None = None
+    msg: dict | ChatMessage, session_id: str | uuid.UUID | None = None
 ) -> ChatMessage | None:
     """
     Сохраняем сообщение в Redis-историю.
@@ -34,7 +34,7 @@ async def push_and_publish(
 
         data = msg_obj.model_dump()
 
-        await redis.add_message(session_id, data)
+        await redis.add_message(str(session_id), data)
 
         await broadcaster.publish(
             f"chat_{session_id}",

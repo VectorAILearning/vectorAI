@@ -1,146 +1,75 @@
+import json
 import logging
+import uuid
+from datetime import datetime
 
 from models.course import ModuleModel
-from models.task import TaskTypeEnum
-from schemas.task import TaskIn
+from models.task import TaskStatusEnum, TaskTypeEnum
+from schemas import LessonOut
+from schemas.task import TaskIn, TaskPatch
 from services import get_cache_service
 from services.learning_service.service import LearningService
 from services.message_bus import push_and_publish
 from services.task_service.service import TaskService
 from sqlalchemy import select
-from utils.uow import uow_context
-from workers.generate_tasks.audit_tasks import _msg
-from workers.generate_tasks.generate_tasks import GenerateDeepEnum
+from utils import _msg, uow_context
+from utils.task_utils import wait_for_task_in_db
+from workers.generate_tasks.course_tasks import GenerateDeepEnum, GenerateTaskContext
 
 log = logging.getLogger(__name__)
 
 
 async def generate_module_plan(
-    ctx, course_id: str, user_pref_summary: str, generate_tasks_context: dict
-) -> list[ModuleModel]:
+    ctx,
+    module_id: uuid.UUID,
+    user_pref_summary: str,
+    session_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    generate_tasks_context: GenerateTaskContext | None = None,
+) -> list[LessonOut]:
     """
-    Генерация плана модулей на основе структуры курса и предпочтений пользователя.
+    Базовая генерация модуля курса (уроков в модуле). Название, описание, цель уроков.
     Args:
         ctx: контекст
-        course_id: id курса
+        module_id (uuid.UUID): id модуля
         user_pref_summary: предпочтения пользователя
-        generate_tasks_context: контекст задач генераций
-    Returns:
-        list[ModuleModel]: список модулей
-    """
-    sid = generate_tasks_context["params"].get("sid")
-    user_id = generate_tasks_context["params"].get("user_id")
-    generate_params = generate_tasks_context["params"]
-    generate_tasks_context["task_type"] = TaskTypeEnum.generate_module_plan.value
-
-    try:
-        redis = get_cache_service()
-        async with uow_context() as uow:
-            await TaskService(uow).create_task(
-                TaskIn(
-                    id=ctx["job_id"],
-                    task_type=generate_tasks_context.get("task_type"),
-                    params=generate_tasks_context.get("params"),
-                    parent_id=generate_tasks_context.get("parent_task_id"),
-                )
-            )
-            generate_tasks_context["parent_task_id"] = ctx["job_id"]
-            # await push_and_publish(_msg("bot", "Генерируем план модулей курса…"), sid)
-
-            modules = await LearningService(uow).create_modules_plan_by_course_id(
-                course_id, user_pref_summary
-            )
-
-            # await push_and_publish(_msg("bot", "План модулей сгенерирован!"), sid)
-
-        if (
-            generate_tasks_context["main_task_type"]
-            == TaskTypeEnum.generate_course.value
-        ):
-            if generate_params.get("deep") != GenerateDeepEnum.course.value:
-                first_module = min(modules, key=lambda m: m.position)
-                await ctx["arq_queue"].enqueue_job(
-                    "generate_module",
-                    str(first_module.id),
-                    user_pref_summary,
-                    generate_tasks_context,
-                    _queue_name="course_generation",
-                )
-
-        return modules
-    except Exception as e:
-        log.exception(
-            f"[generate_module_plan] Ошибка при генерации плана модулей для sid={sid}: {e}"
-        )
-        await push_and_publish(
-            _msg(
-                "bot", f"Произошла ошибка при создании плана модулей: {str(e)}", "error"
-            ),
-            sid,
-        )
-        await push_and_publish(
-            _msg(
-                "system",
-                "Ошибка при создании плана модулей",
-                "module_plan_creation_error",
-            ),
-            sid,
-        )
-        if sid:
-            await redis.clear_course_generation_in_progress(sid)
-        raise
-
-
-async def generate_module(
-    ctx, module_id: str, user_pref_summary: str, generate_tasks_context: dict
-) -> ModuleModel:
-    """
-    Генерация модуля на основе предпочтений пользователя.
-    Args:
-        ctx: контекст
-        module_id: id модуля
-        user_pref_summary: предпочтения пользователя
+        session_id (uuid.UUID): id сессии
+        user_id (uuid.UUID): id пользователя
         generate_tasks_context: контекст задач генераций
     Returns:
         ModuleModel: модуль
     """
-    sid = generate_tasks_context["params"].get("sid")
-    user_id = generate_tasks_context["params"].get("user_id")
-    generate_params = generate_tasks_context["params"]
-    generate_tasks_context["task_type"] = TaskTypeEnum.generate_module.value
-
-    log.info(f"[generate_module] Генерация модуля {module_id} для sid={sid}")
-
+    log.info(
+        f"[generate_module] Генерация модуля {module_id} для session_id={session_id}, user_id={user_id}"
+    )
     try:
         redis = get_cache_service()
         async with uow_context() as uow:
-            await TaskService(uow).create_task(
-                TaskIn(
-                    id=ctx["job_id"],
-                    task_type=generate_tasks_context.get("task_type"),
-                    params=generate_tasks_context.get("params"),
-                    parent_id=generate_tasks_context.get("parent_task_id"),
-                )
+            task = await wait_for_task_in_db(uow.task_repo, ctx["job_id"])
+            if not task:
+                raise Exception(f"Task {ctx['job_id']} not found in DB")
+            await TaskService(uow).partial_update_task(
+                ctx["job_id"],
+                TaskPatch(
+                    status=TaskStatusEnum.in_progress,
+                    started_at=datetime.now(),
+                ),
             )
-            generate_tasks_context["parent_task_id"] = ctx["job_id"]
-            module = await LearningService(uow).get_module_by_id(module_id)
 
-            # await push_and_publish(_msg("bot", f"Генерируем план уроков для модуля {module.title}…"), sid)
+            module = await LearningService(uow).get_module_by_id(module_id)
+            if not module:
+                log.error(f"[generate_module] Модуль {module_id} не найден")
+                raise ValueError(f"Модуль {module_id} не найден")
 
             lessons = await LearningService(uow).create_lessons_plan_by_module_id(
                 module_id, user_pref_summary
             )
-
             log.info(
                 f"[generate_module] План уроков для модуля {module.title} сгенерирован"
             )
-            # await push_and_publish(_msg("bot", f"План уроков для модуля {module.title} сгенерирован!"), sid)
 
-            if (
-                generate_tasks_context["main_task_type"]
-                == TaskTypeEnum.generate_course.value
-            ):
-                if generate_params.get("deep") != GenerateDeepEnum.module.value:
+            if generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
+                if generate_tasks_context.deep != GenerateDeepEnum.module_plan.value:
                     next_module = await uow.session.execute(
                         select(ModuleModel)
                         .where(ModuleModel.course_id == module.course_id)
@@ -151,12 +80,27 @@ async def generate_module(
                         log.info(
                             f"[generate_module] Следующий модуль найден: id={next_module.id}, position={next_module.position}"
                         )
-                        await ctx["arq_queue"].enqueue_job(
-                            "generate_module",
-                            str(next_module.id),
+                        job = await ctx["arq_queue"].enqueue_job(
+                            "generate_module_plan",
+                            next_module.id,
                             user_pref_summary,
+                            session_id,
+                            user_id,
                             generate_tasks_context,
                             _queue_name="course_generation",
+                        )
+                        await TaskService(uow).create_task(
+                            TaskIn(
+                                id=job.job_id,
+                                task_type=TaskTypeEnum.generate_module_plan,
+                                params={
+                                    "module_id": str(next_module.id),
+                                    "user_pref_summary": user_pref_summary,
+                                },
+                                session_id=session_id,
+                                user_id=user_id,
+                                parent_id=ctx["job_id"],
+                            )
                         )
                     else:
                         log.info(
@@ -173,26 +117,80 @@ async def generate_module(
                         first_lesson = min(
                             first_module.lessons, key=lambda l: l.position
                         )
-                        await ctx["arq_queue"].enqueue_job(
-                            "generate_lesson_plan",
-                            str(first_lesson.id),
+                        job = await ctx["arq_queue"].enqueue_job(
+                            "generate_lesson_content_plan",
+                            first_lesson.id,
                             user_pref_summary,
+                            session_id,
+                            user_id,
                             generate_tasks_context,
                             _queue_name="course_generation",
                         )
-            return lessons
+                        await TaskService(uow).create_task(
+                            TaskIn(
+                                id=job.job_id,
+                                task_type=TaskTypeEnum.generate_lesson_content_plan,
+                                params={
+                                    "lesson_id": str(first_lesson.id),
+                                    "user_pref_summary": user_pref_summary,
+                                },
+                                session_id=session_id,
+                                user_id=user_id,
+                                parent_id=ctx["job_id"],
+                            )
+                        )
+            await TaskService(uow).partial_update_task(
+                ctx["job_id"],
+                TaskPatch(
+                    status=TaskStatusEnum.success,
+                    result=[
+                        json.loads(LessonOut.model_validate(lesson).model_dump_json())
+                        for lesson in lessons
+                    ],
+                    finished_at=datetime.now(),
+                ),
+            )
+            return [LessonOut.model_validate(lesson).model_dump() for lesson in lessons]
     except Exception as e:
         log.exception(
-            f"[generate_module] Ошибка при генерации модуля для sid={sid}: {e}"
+            f"[generate_module] Ошибка при генерации модуля для session_id={session_id}, user_id={user_id}: {e}"
         )
-        await push_and_publish(
-            _msg("bot", f"Произошла ошибка при создании модуля: {str(e)}", "error"),
-            sid,
-        )
-        await push_and_publish(
-            _msg("system", "Ошибка при создании модуля", "module_creation_error"),
-            sid,
-        )
-        if sid:
-            await redis.clear_course_generation_in_progress(sid)
+        async with uow_context() as uow:
+            task = await wait_for_task_in_db(uow.task_repo, ctx["job_id"])
+            if not task:
+                raise Exception(f"Task {ctx['job_id']} not found in DB")
+            await TaskService(uow).partial_update_task(
+                ctx["job_id"],
+                TaskPatch(
+                    status=TaskStatusEnum.failed,
+                    error_message=str(e),
+                    finished_at=datetime.now(),
+                ),
+            )
+            if generate_tasks_context and generate_tasks_context.main_task_id:
+                parent_task = await wait_for_task_in_db(
+                    uow.task_repo, generate_tasks_context.main_task_id
+                )
+                if not parent_task:
+                    raise Exception(
+                        f"Task {generate_tasks_context.main_task_id} not found in DB"
+                    )
+                await TaskService(uow).partial_update_task(
+                    generate_tasks_context.main_task_id,
+                    TaskPatch(
+                        status=TaskStatusEnum.failed,
+                        error_message=str(e),
+                        finished_at=datetime.now(),
+                    ),
+                )
+        if session_id:
+            await push_and_publish(
+                _msg("bot", f"Произошла ошибка при создании модуля: {str(e)}", "error"),
+                session_id,
+            )
+            await push_and_publish(
+                _msg("system", "Ошибка при создании модуля", "module_creation_error"),
+                session_id,
+            )
+            await redis.clear_course_generation_in_progress(session_id)
         raise
