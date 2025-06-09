@@ -59,6 +59,11 @@ class LearningService:
         self, module_id: uuid.UUID, user_preferences: str
     ) -> list[LessonModel]:
         module = await self.uow.learning_repo.get_module_by_id(module_id)
+        if not module:
+            raise ValueError(f"Модуль {module_id} не найден")
+        if not module.course:
+            raise ValueError(f"Модуль {module_id} не имеет курса")
+
         course_structure_json = CourseOut.model_validate(module.course).model_dump()
         module_structure_json = ModuleOut.model_validate(module).model_dump()
         lesson_plan = self.agent.generate_lesson_plan(
@@ -81,17 +86,22 @@ class LearningService:
     async def initiate_user_learning_by_session_id(
         self, user_id: uuid.UUID, session_id: uuid.UUID
     ):
-        course = await self.uow.learning_repo.get_course_by_session_id(session_id)
-        if not course:
-            return
+        courses = await self.uow.learning_repo.get_courses_by_session_id(session_id)
+        if not courses:
+            raise ValueError(f"Курс для сессии {session_id} не найден")
 
-        await self.uow.learning_repo.update_course(
-            data=CourseUpdate(user_id=user_id),
-            course_id=course.id,
-        )
-        await self.uow.audit_repo.update_course_preference(
-            data=PreferenceUpdate(user_id=user_id), preference_id=course.preference.id
-        )
+        for course in courses:
+            if not course.preference:
+                raise ValueError(f"Курс {course.id} не имеет предпочтения")
+
+            await self.uow.learning_repo.update_course(
+                data=CourseUpdate(user_id=user_id),
+                course_id=course.id,
+            )
+            await self.uow.audit_repo.update_course_preference(
+                data=PreferenceUpdate(user_id=user_id),
+                preference_id=course.preference.id,
+            )
 
     async def get_course_by_id(self, course_id: uuid.UUID):
         return await self.uow.learning_repo.get_course_by_id(course_id)
@@ -103,9 +113,14 @@ class LearningService:
         return await self.uow.learning_repo.get_lesson_by_id(lesson_id)
 
     async def generate_and_save_lesson_content_plan(
-        self, lesson_id: str, user_preferences: str = ""
+        self, lesson_id: uuid.UUID, user_preferences: str = ""
     ) -> list[ContentModel]:
-        lesson = await self.uow.learning_repo.get_lesson_by_id(lesson_id)
+        lesson: LessonModel = await self.uow.learning_repo.get_lesson_by_id(lesson_id)
+        if not lesson:
+            raise ValueError(f"Урок {lesson_id} не найден")
+        if not lesson.module:
+            raise ValueError(f"Урок {lesson_id} не имеет модуля")
+
         course_dict = CourseOut.model_validate(lesson.module.course).model_dump()
         content_plan = LessonPlanAgent().generate_lesson_content_plan(
             lesson_description=f"{lesson.title}. {lesson.description}. Цель: {lesson.goal}",

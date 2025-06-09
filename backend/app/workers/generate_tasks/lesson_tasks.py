@@ -28,7 +28,7 @@ async def generate_lesson_content_plan(
     session_id: uuid.UUID | None = None,
     user_id: uuid.UUID | None = None,
     generate_tasks_context: GenerateTaskContext | None = None,
-) -> list[ContentModel]:
+) -> list[dict]:
     """
     Базовая генерация контент-плана урока (блоков контента в уроке). Название, описание, цель блоков контента.
     Args:
@@ -39,7 +39,7 @@ async def generate_lesson_content_plan(
         user_pref_summary: предпочтения пользователя
         generate_tasks_context: контекст задач генераций
     Returns:
-        list[ContentModel]: список блоков контента
+        list[ContentOut]: список блоков контента
     """
     try:
         redis = get_cache_service()
@@ -70,7 +70,10 @@ async def generate_lesson_content_plan(
                 f"[generate_lesson_plan] Контент-план для урока {lesson_id} сгенерирован"
             )
 
-        if generate_tasks_context.main_task_type == TaskTypeEnum.generate_course:
+        if (
+            generate_tasks_context
+            and generate_tasks_context.main_task_type == TaskTypeEnum.generate_course
+        ):
             if (
                 generate_tasks_context.deep
                 != GenerateDeepEnum.lesson_content_plan.value
@@ -190,24 +193,38 @@ async def generate_lesson_content_plan(
                             )
                         )
                     else:
-                        first_module = await uow.session.execute(
-                            select(ModuleModel)
-                            .options(
-                                selectinload(ModuleModel.lessons).selectinload(
-                                    LessonModel.contents
+                        first_module = (
+                            await uow.session.execute(
+                                select(ModuleModel)
+                                .options(
+                                    selectinload(ModuleModel.lessons).selectinload(
+                                        LessonModel.contents
+                                    )
                                 )
+                                .where(ModuleModel.course_id == lesson.module.course_id)
+                                .where(ModuleModel.position == 1)
+                                .limit(1)
                             )
-                            .where(ModuleModel.course_id == lesson.module.course_id)
-                            .where(ModuleModel.position == 1)
-                            .limit(1)
-                        )
-                        first_module = first_module.scalar_one_or_none()
+                        ).scalar_one_or_none()
+                        if not first_module:
+                            raise ValueError(f"Модуль не найден для урока {lesson_id}")
+
                         first_lesson = min(
                             first_module.lessons, key=lambda l: l.position
                         )
+                        if not first_lesson:
+                            raise ValueError(
+                                f"Урок не найден для модуля {first_module.id}"
+                            )
+
                         first_content_block = min(
                             first_lesson.contents, key=lambda c: c.position
                         )
+                        if not first_content_block:
+                            raise ValueError(
+                                f"Блок контента не найден для урока {first_lesson.id}"
+                            )
+
                         job = await ctx["arq_queue"].enqueue_job(
                             "generate_content",
                             first_content_block.id,
@@ -236,7 +253,9 @@ async def generate_lesson_content_plan(
                             f"[generate_lesson_plan] Нет следующего модуля после урока {lesson_id}, завершаем генерацию курса"
                         )
                         if session_id:
-                            await redis.clear_course_generation_in_progress(session_id)
+                            await redis.clear_course_generation_in_progress(
+                                str(session_id)
+                            )
         await TaskService(uow).partial_update_task(
             ctx["job_id"],
             TaskPatch(
@@ -292,6 +311,6 @@ async def generate_lesson_content_plan(
                 _msg("system", "Ошибка при создании урока", "lesson_creation_error"),
                 str(session_id),
             )
-            await redis.clear_course_generation_in_progress(session_id)
-            await redis.set_session_status(session_id, "course_generation_error")
+            await redis.clear_course_generation_in_progress(str(session_id))
+            await redis.set_session_status(str(session_id), "course_generation_error")
         raise

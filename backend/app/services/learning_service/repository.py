@@ -36,18 +36,17 @@ class LearningRepository:
         return course
 
     async def get_courses_by_session_id(
-        self, session_id: str
-    ) -> list[CourseModel | None]:
+        self, session_id: uuid.UUID
+    ) -> list[CourseModel]:
         stmt = select(CourseModel).where(CourseModel.session_id == session_id)
         result = await self.db.execute(stmt)
-        courses = result.scalars()
-        return list(courses)
+        return list(result.scalars().all())
 
     async def create_course_by_json(
         self,
         course_json: dict,
-        user_id: str = None,
-        session_id: str = None,
+        user_id: str | None = None,
+        session_id: str | None = None,
     ) -> CourseModel:
         course_in = CourseIn(**course_json)
 

@@ -1,3 +1,4 @@
+import uuid
 from urllib.parse import urlencode
 
 from core.config import settings
@@ -33,8 +34,14 @@ async def login(
     try:
         service = AuthService(uow)
         user = await service.authenticate_user(form_data.username, form_data.password)
+        if not user:
+            raise HTTPException(status_code=400, detail="Неверный email или пароль")
         access_token = service.create_access_token(data={"sub": user.email})
         refresh_token = await service.create_refresh_token(user_id=user.id)
+        if not refresh_token:
+            raise HTTPException(
+                status_code=500, detail="Не удалось создать refresh_token"
+            )
         return Token(refresh_token=refresh_token.token, access_token=access_token)
     except HTTPException as e:
         raise e
@@ -61,12 +68,12 @@ async def register(
         if not user:
             raise HTTPException(status_code=400, detail="Пользователь уже существует")
 
-        ip = request.client.host
+        ip = request.client.host if request.client else "unknown"
         device = request.headers.get("user-agent", "unknown")
         sid = await SessionService(uow).get_session_id_by_ip_user_agent(ip, device)
         if sid:
             await LearningService(uow).initiate_user_learning_by_session_id(
-                user.id, sid
+                user.id, uuid.UUID(sid)
             )
 
         return RegistrationResponse(

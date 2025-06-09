@@ -12,7 +12,9 @@ class SessionService:
         self.cache_service = cache_service or get_cache_service()
         self.uow = uow
 
-    async def get_session_id_by_ip_user_agent(self, ip, user_agent):
+    async def get_session_id_by_ip_user_agent(
+        self, ip: str, user_agent: str
+    ) -> str | None:
         session_redis = await self.cache_service.get_session_id_by_ip_device(
             ip, user_agent
         )
