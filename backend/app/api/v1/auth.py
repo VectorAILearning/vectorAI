@@ -5,6 +5,7 @@ from core.config import settings
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from models import UserModel
 from schemas import UserBase
 from schemas.auth import (
     ForgotPasswordRequest,
@@ -18,7 +19,7 @@ from schemas.auth import (
 from services.auth.service import AuthService
 from services.learning_service.service import LearningService
 from services.session_service.service import SessionService
-from utils.auth_utils import get_current_user
+from utils.auth_utils import is_user
 from utils.uow import UnitOfWork, get_uow
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
@@ -176,7 +177,7 @@ async def auth_via_google(code: GoogleLoginRequest, uow: UnitOfWork = Depends(ge
 
 
 @auth_router.get("/me", response_model=UserBase)
-async def me(current_user: str = Depends(get_current_user)):
+async def me(current_user: UserModel = is_user):
     """
     Получение информации о текущем (аутентифицированном) пользователе.
     """
