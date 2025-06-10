@@ -11,6 +11,7 @@ class ContentOut(BaseModel):
     position: int
     description: Optional[str] = None
     goal: Optional[str] = None
+    outline: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -18,33 +19,33 @@ class ContentOut(BaseModel):
 
 
 class LessonIn(BaseModel):
-    title: str = Field(default=None, max_length=255)
-    description: str = Field(default=None, max_length=1000)
-    goal: str = Field(default=None, max_length=1000)
+    title: str = Field(default="", max_length=255)
+    description: str = Field(default="", max_length=1000)
+    goal: str = Field(default="", max_length=1000)
     estimated_time_hours: float = 3
     position: int
 
 
 class ModuleIn(BaseModel):
-    title: str = Field(default=None, max_length=255)
-    description: str = Field(default=None, max_length=1000)
-    goal: str = Field(default=None, max_length=1000)
+    title: str = Field(default="", max_length=255)
+    description: str = Field(default="", max_length=1000)
+    goal: str = Field(default="", max_length=1000)
     estimated_time_hours: float = 15
     lessons: List[LessonIn] = []
     position: int
 
 
 class CourseIn(BaseModel):
-    title: str = Field(default=None, max_length=255)
-    goal: str = Field(default=None, max_length=1000)
-    description: str = Field(default=None, max_length=1000)
+    title: str = Field(default="", max_length=255)
+    goal: str = Field(default="", max_length=1000)
+    description: str = Field(default="", max_length=1000)
     estimated_time_hours: float = 60
     modules: List[ModuleIn] = []
 
 
 class CourseUpdate(BaseModel):
-    title: str | None = Field(default=None, max_length=255)
-    description: str | None = Field(default=None, max_length=1000)
+    title: str | None = Field(default="", max_length=255)
+    description: str | None = Field(default="", max_length=1000)
     estimated_time_hours: float | None = None
     is_completed: bool | None = None
     user_id: uuid.UUID | None = None
@@ -93,3 +94,58 @@ class CourseOut(BaseModel):
     class Config:
         from_attributes = True
         json_encoders = {uuid.UUID: str}
+
+
+class ContentStructureOut(BaseModel):
+    type: str
+    description: str
+    goal: str
+
+    class Config:
+        from_attributes = True
+
+
+class LessonStructureOut(BaseModel):
+    title: str
+    description: str
+    goal: str
+
+    class Config:
+        from_attributes = True
+
+
+class ModuleStructureOut(BaseModel):
+    title: str
+    goal: str
+
+    class Config:
+        from_attributes = True
+
+
+class CourseStructureOut(BaseModel):
+    title: str
+    goal: str
+
+    class Config:
+        from_attributes = True
+
+
+class ModuleStructureWithLessonsOut(ModuleStructureOut):
+    lessons: list[LessonStructureOut]
+
+    class Config:
+        from_attributes = True
+
+
+class CourseStructureWithModulesOut(CourseStructureOut):
+    modules: list[ModuleStructureOut]
+
+    class Config:
+        from_attributes = True
+
+
+class LessonStructureWithContentsOut(LessonStructureOut):
+    contents: list[ContentStructureOut]
+
+    class Config:
+        from_attributes = True

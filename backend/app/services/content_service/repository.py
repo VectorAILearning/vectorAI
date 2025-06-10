@@ -1,22 +1,36 @@
 import uuid
 
-from fastapi import HTTPException
-from models import ContentModel
+from models.content import ContentModel
+from models.course import CourseModel, LessonModel, ModuleModel
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import selectinload
 
 
 class ContentRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def get_content_by_id(self, content_id: uuid.UUID) -> ContentModel | None:
+        return await self.db.get(
+            ContentModel,
+            content_id,
+            options=[
+                selectinload(ContentModel.lesson)
+                .selectinload(LessonModel.module)
+                .selectinload(ModuleModel.course)
+                .selectinload(CourseModel.modules)
+                .selectinload(ModuleModel.lessons)
+                .selectinload(LessonModel.contents)
+            ],
+        )
+
     async def get_content_by_lesson_id(
         self, lesson_id: uuid.UUID
     ) -> list[ContentModel]:
         stmt = select(ContentModel).where(ContentModel.lesson_id == lesson_id)
         result = await self.db.execute(stmt)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def create_content(self, content: ContentModel) -> ContentModel:
         self.db.add(content)

@@ -6,6 +6,7 @@ from fastapi import Depends
 from services.audit_service.repository import AuditRepository
 from services.auth.repositories.auth import AuthRepository
 from services.auth.repositories.token_refresh import RefreshTokenRepository
+from services.content_service.repository import ContentRepository
 from services.learning_service.repository import LearningRepository
 from services.session_service.repository import SessionRepository
 from services.task_service.repository import TaskRepository
@@ -21,6 +22,7 @@ class UnitOfWork:
         self.session_repo = SessionRepository(self.session)
         self.refresh_token_repo = RefreshTokenRepository(self.session)
         self.task_repo = TaskRepository(self.session)
+        self.content_repo = ContentRepository(self.session)
 
     async def __aenter__(self):
         return self

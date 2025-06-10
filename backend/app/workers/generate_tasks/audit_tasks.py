@@ -6,13 +6,13 @@ from datetime import datetime
 from models.base import PreferenceModel
 from models.task import TaskStatusEnum, TaskTypeEnum
 from schemas.audit import PreferenceOut
+from schemas.generate import GenerateDeepEnum, GenerateTaskContext
 from schemas.task import TaskIn, TaskOut, TaskPatch
 from services import get_cache_service
 from services.message_bus import push_and_publish
 from services.task_service.service import TaskService
 from utils import _msg, uow_context
 from utils.task_utils import wait_for_task_in_db
-from workers.generate_tasks.course_tasks import GenerateDeepEnum, GenerateTaskContext
 
 log = logging.getLogger(__name__)
 
