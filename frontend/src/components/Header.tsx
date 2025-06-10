@@ -30,7 +30,12 @@ export default function Header() {
 
   return (
     <header className="w-full flex justify-between items-center p-4 bg-base-200">
-      <div className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate("/")}>ВЕКТОР</div>
+      <div
+        className="text-2xl font-bold text-primary cursor-pointer"
+        onClick={() => navigate("/")}
+      >
+        ВЕКТОР
+      </div>
       <div className="flex items-center space-x-4 justify-end w-1/3">
         <label className="flex cursor-pointer gap-2 items-center">
           <FaSun

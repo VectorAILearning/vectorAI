@@ -104,6 +104,7 @@ class LearningRepository:
             estimated_time_hours=module_json["estimated_time_hours"],
             position=module_json["position"],
             course_id=course_id,
+            goal=module_json["goal"],
         )
         self.db.add(module)
         await self.db.commit()
@@ -137,6 +138,7 @@ class LearningRepository:
             estimated_time_hours=lesson_json["estimated_time_hours"],
             position=lesson_json["position"],
             module_id=module_id,
+            goal=lesson_json["goal"],
         )
         self.db.add(lesson)
         await self.db.commit()

@@ -18,6 +18,7 @@ class ContentType(str, Enum):
     MISTAKES = "mistakes"
     REFLECTION = "reflection"
     TEST = "test"
+    CODE = "code"
 
 
 class ContentModel(Base):
@@ -37,5 +38,6 @@ class ContentModel(Base):
     goal: Mapped[str] = mapped_column(String(1000), nullable=True)
     content: Mapped[dict] = mapped_column(JSON, nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    outline: Mapped[str] = mapped_column(String(1000), nullable=True)
 
     lesson: Mapped["LessonModel"] = relationship(back_populates="contents")

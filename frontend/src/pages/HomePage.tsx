@@ -57,8 +57,8 @@ export default function HomePage() {
         if (data.type === "course_created_start") {
           setStatus("course_creating");
         }
-        if (data.type === "course_created_done") {
-          setStatus("course_created_done");
+        if (data.type === "course_generation_done") {
+          setStatus("course_generation_done");
           ws.close();
           return;
         }
@@ -147,7 +147,7 @@ export default function HomePage() {
     handleWsMessage,
     {
       shouldReconnect:
-        status !== "course_created_done" &&
+        status !== "course_generation_done" &&
         status !== "no_subscription" &&
         readyToConnect,
       reconnectDelay: 2000,
@@ -230,7 +230,7 @@ export default function HomePage() {
       ? "Пожалуйста, авторизуйтесь или купите подписку, чтобы продолжить."
       : !connected && status === "chating"
         ? "Восстанавливаем соединение..."
-        : status === "course_created_done"
+        : status === "course_generation_done"
           ? "Курс создан! Получите его ниже."
           : status !== "chating" && messages.length
             ? "Ждём ответа бота..."
@@ -349,7 +349,7 @@ export default function HomePage() {
               Сбросить чат
             </button>
           )}
-          {status === "course_created_done" && (
+          {status === "course_generation_done" && (
             <button
               className="btn btn-primary mt-4"
               onClick={() => navigate("/course")}

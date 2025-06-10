@@ -24,13 +24,10 @@ class TaskService:
         await self.uow.session.refresh(task_db)
         return TaskOut.model_validate(task_db)
 
-    async def update_task(self, task: TaskIn) -> TaskOut:
-        task_db = await self.uow.task_repo.save(
-            TaskModel(**task.model_dump(mode="python"))
-        )
+    async def update_task(self, task: TaskModel) -> TaskOut:
         await self.uow.session.commit()
-        await self.uow.session.refresh(task_db)
-        return TaskOut.model_validate(task_db)
+        await self.uow.session.refresh(task)
+        return TaskOut.model_validate(task)
 
     async def partial_update_task(
         self, task_id: str | uuid.UUID, patch: TaskPatch

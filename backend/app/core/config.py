@@ -81,11 +81,9 @@ class OpenAISettings(BaseSettings):
     OPENAI_API_KEY: str
     OPENAI_MODEL_AUDIT: str = "gpt-4o-mini"
     OPENAI_MODEL_COURSE_PLAN: str = "gpt-4o-mini"
-    OPENAI_MODEL_LESSON_PLAN: str = "gpt-4o-mini"
     OPENAI_MODEL_LESSON_CONTENT: str = "gpt-4o-mini"
     OPENAI_TEMPERATURE_AUDIT: float = 0.2
     OPENAI_TEMPERATURE_COURSE_PLAN: float = 0.3
-    OPENAI_TEMPERATURE_LESSON_PLAN: float = 0.3
     OPENAI_TEMPERATURE_LESSON_CONTENT: float = 0.3
     AUDIT_MAX_QUESTIONS: int = 5
 
@@ -97,7 +95,7 @@ class OpenAISettings(BaseSettings):
 class GenerationSettings(BaseSettings):
     GENERATION_MAX_MODULES: int = 2
     GENERATION_MAX_LESSONS: int = 2
-    GENERATION_MAX_CONTENTS: int = 10
+    GENERATION_MAX_CONTENTS: int = 20
 
 
 settings = Settings()
