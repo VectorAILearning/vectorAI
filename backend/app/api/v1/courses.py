@@ -11,12 +11,12 @@ courses_router = APIRouter(tags=["learning"])
 
 @courses_router.get("/user-courses", response_model=list[CourseOut])
 async def get_user_courses(request: Request, uow: UnitOfWork = Depends(get_uow)):
-    ip = request.client.host
+    ip = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("user-agent", "unknown")
     session_id = await SessionService(uow).get_session_id_by_ip_user_agent(
         ip, user_agent
     )
-    courses = await uow.learning_repo.get_courses_by_session_id(session_id)
+    courses = await uow.learning_repo.get_courses_by_session_id(uuid.UUID(session_id))
     return courses
 
 

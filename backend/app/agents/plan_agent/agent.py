@@ -2,6 +2,7 @@ from agents.base_agent import BaseAgent
 from core.config import generation_settings, openai_settings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 
 from .prompts import (
     HUMAN_PROMPT_COURSE,
@@ -18,7 +19,7 @@ from .prompts import (
 class CoursePlanAgent(BaseAgent):
     def __init__(self):
         self.llm = ChatOpenAI(
-            api_key=openai_settings.OPENAI_API_KEY,
+            api_key=SecretStr(openai_settings.OPENAI_API_KEY),
             model=openai_settings.OPENAI_MODEL_COURSE_PLAN,
             temperature=openai_settings.OPENAI_TEMPERATURE_COURSE_PLAN,
         )
@@ -39,9 +40,7 @@ class CoursePlanAgent(BaseAgent):
         )
         return self.call_json_llm({"profile_summary": profile_summary}, prompt=prompt)
 
-    def generate_module_plan(
-        self, course_structure_json: str, user_preferences: str
-    ) -> list[dict]:
+    def generate_module_plan(self, course_structure_json: str, user_preferences: str):
         prompt = ChatPromptTemplate.from_messages(
             [
                 ("system", SYSTEM_PROMPT_MODULE),
@@ -62,7 +61,7 @@ class CoursePlanAgent(BaseAgent):
         course_structure_json: str,
         module_structure_json: str,
         user_preferences: str,
-    ) -> list[dict]:
+    ):
         prompt = ChatPromptTemplate.from_messages(
             [
                 ("system", SYSTEM_PROMPT_LESSON),
@@ -85,7 +84,7 @@ class CoursePlanAgent(BaseAgent):
         module_structure_json: str,
         lesson_structure_json: str,
         user_preferences: str,
-    ) -> list[dict]:
+    ):
         prompt = ChatPromptTemplate.from_messages(
             [
                 ("system", SYSTEM_PROMPT_LESSON_CONTENT),

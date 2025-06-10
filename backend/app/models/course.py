@@ -1,6 +1,7 @@
 import uuid
 
 from core.database import Base
+from models.content import ContentModel
 from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -82,5 +83,8 @@ class LessonModel(Base):
 
     module: Mapped["ModuleModel"] = relationship(back_populates="lessons")
     contents: Mapped[list["ContentModel"]] = relationship(
-        back_populates="lesson", cascade="all, delete-orphan", lazy="selectin"
+        back_populates="lesson",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by=ContentModel.position,
     )
