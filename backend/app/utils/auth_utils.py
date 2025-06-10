@@ -1,7 +1,10 @@
+from typing import List
+
 import jwt
 from core.config import settings
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
+from models import UserModel, UserRole
 from schemas.user import UserBase
 from services.auth.service import AuthService
 from starlette import status
@@ -45,3 +48,19 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     return UserBase.model_validate(user)
+
+
+def require_roles(required_roles: List[UserRole]):
+    def role_checker(current_user: UserModel = Depends(get_current_user)):
+        if current_user.role not in required_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"У вас нет прав для выполнения этого действия. Требуется одна из ролей: {', '.join(r.value for r in required_roles)}",
+            )
+        return current_user
+
+    return role_checker
+
+
+is_admin = Depends(require_roles([UserRole.ADMIN]))
+is_user = Depends(require_roles([UserRole.USER]))

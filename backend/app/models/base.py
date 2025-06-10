@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from enum import Enum
 
 from core.database import Base
 from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
@@ -7,6 +8,12 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.sqltypes import Boolean, DateTime
+from sqlalchemy.sql.sqltypes import Enum as SqlEnum
+
+
+class UserRole(str, Enum):
+    USER = "user"
+    ADMIN = "admin"
 
 
 class UserModel(Base):
@@ -19,6 +26,9 @@ class UserModel(Base):
     email: Mapped[str] = mapped_column(String(256), nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    role: Mapped[UserRole] = mapped_column(
+        SqlEnum(UserRole, name="user_role_enum"), default=UserRole.USER, nullable=False
+    )
 
     courses: Mapped[list["CourseModel"]] = relationship(back_populates="user")
     preferences: Mapped[list["PreferenceModel"]] = relationship(back_populates="user")
