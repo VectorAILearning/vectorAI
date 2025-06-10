@@ -1,7 +1,7 @@
 """add_role_user
 
 Revision ID: 4cb4e4c7380b
-Revises: bb74bdeefd5a
+Revises: 6841c21d8dfb
 Create Date: 2025-06-10 19:00:22.379985+00:00
 
 """
@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "4cb4e4c7380b"
-down_revision: Union[str, None] = "bb74bdeefd5a"
+down_revision: Union[str, None] = "6841c21d8dfb"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
