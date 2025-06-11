@@ -98,6 +98,19 @@ class GenerationSettings(BaseSettings):
     GENERATION_MAX_CONTENTS: int = 20
 
 
+class CodeSettings(BaseSettings):
+    RAPIDAPI_KEY: str = "key"
+    RAPIDAPI_HOST: str = "judge0-ce.p.rapidapi.com"
+
+    model_config = SettingsConfigDict(
+        env_prefix="CODE_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
+code_settings = CodeSettings()
 settings = Settings()
 openai_settings = OpenAISettings()
 generation_settings = GenerationSettings()

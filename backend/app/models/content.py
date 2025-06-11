@@ -14,8 +14,6 @@ class ContentType(str, Enum):
     VIDEO = "video"
     DIALOG = "dialog"
     PRACTICE = "practice"
-    EXAMPLES = "examples"
-    MISTAKES = "mistakes"
     REFLECTION = "reflection"
     TEST = "test"
     CODE = "code"

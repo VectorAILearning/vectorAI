@@ -1,12 +1,16 @@
 interface TestContentProps {
-  testContent: any;
+  testContent?: any;
 }
 
 export default function TestContent({ testContent }: TestContentProps) {
-  if (!testContent || typeof testContent.question !== "string") {
+  if (
+    !testContent ||
+    typeof testContent !== "object" ||
+    typeof testContent.question !== "string"
+  ) {
     return (
       <div className="text-error">
-        Некорректный формат test:{" "}
+        Нет данных для теста.
         <pre>{JSON.stringify(testContent, null, 2)}</pre>
       </div>
     );
