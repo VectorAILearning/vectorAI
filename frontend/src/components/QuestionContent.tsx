@@ -1,6 +1,21 @@
 import React, { useState } from "react";
 
 export default function QuestionContent({ questionContent }) {
+  // Проверка на отсутствие или некорректность данных
+  if (
+    !questionContent ||
+    typeof questionContent !== "object" ||
+    typeof questionContent.question !== "string" ||
+    !Array.isArray(questionContent.options)
+  ) {
+    return (
+      <div className="text-error">
+        Нет данных для вопроса.
+        <pre>{JSON.stringify(questionContent, null, 2)}</pre>
+      </div>
+    );
+  }
+
   const [selectOptions, setSelectedOptions] = useState<string>("");
   const [isSolution, setIsSolution] = useState<boolean>(false);
   const [SolutionError, setSolutionError] = useState<boolean>(false);

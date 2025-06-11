@@ -7,9 +7,8 @@ import DialogContent from "../components/DialogContent";
 import TestContent from "../components/TestContent";
 import QuestionContent from "../components/QuestionContent";
 import ReflectionContent from "../components/ReflectionContent";
-import MistakesContent from "../components/MistakesContent";
-import ExamplesContent from "../components/ExamplesContent";
 import PracticeContent from "../components/PracticeContent";
+import CodeContent from "../components/CodeContent";
 
 export default function LessonsPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -316,19 +315,15 @@ export default function LessonsPage() {
                         {block.type === "video" && (
                           <VideoContent videoContent={block.content} />
                         )}
-                        {block.type === "examples" && (
-                          <ExamplesContent examplesContent={block.content} />
-                        )}
-                        {block.type === "mistakes" && (
-                          <MistakesContent mistakesContent={block.content} />
-                        )}
                         {block.type === "dialog" && (
                           <DialogContent dialogContent={block.content} />
                         )}
                         {block.type === "practice" && (
                           <PracticeContent practiceContent={block.content} />
                         )}
-
+                        {block.type === "code" && (
+                          <CodeContent codeContent={block.content} />
+                        )}
                         {block.type === "open_answer" && (
                           <TestContent testContent={block.content} />
                         )}
