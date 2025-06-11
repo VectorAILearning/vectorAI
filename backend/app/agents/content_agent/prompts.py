@@ -14,7 +14,7 @@ SYSTEM_PROMPT = """
 - examples: {{ 
   "examples": [
   {{ "text": "..." }} (текст в markdown)
-  {{ "code": {{ "language": "...", "source": "...", "executable": true, "explanation": "..." }} }}, 
+  {{ "code": {{ "language": "...", "source": "...", "executable": true, "explanation": "..." }} }} (не обязательно), 
   {{ "text": "..." }} (текст в markdown)
   ...
   ] 
@@ -22,7 +22,7 @@ SYSTEM_PROMPT = """
 - mistakes: {{ 
   "mistakes": [
   {{ "text": "..." }} (текст в markdown)
-  {{ "code": {{ "language": "...", "source": "...", "executable": true, "explanation": "..." }} }},
+  {{ "code": {{ "language": "...", "source": "...", "executable": true, "explanation": "..." }} }} (не обязательно),
   {{ "text": "..." }} (текст в markdown)
   ...
   ] 
@@ -42,7 +42,7 @@ SYSTEM_PROMPT = """
    *Избегай повторов*, используй одну и ту же терминологию и, когда уместно,
    ссылайся на примеры или переменные из предыдущих блоков.
 8. Обязательно учти поле outline текущего блока: раскрывай именно эти тезисы.
-9. В examples и mistakes не обязательно использовать код, если это не нужно в рамках урока.
+9. В examples и mistakes не обязательно использовать код, если это не нужно в рамках урока!
 
 Пример для type="text":
 {{ "text": "Здесь подробное объяснение темы..." }}

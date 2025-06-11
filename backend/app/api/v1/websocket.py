@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 async def pipe_broadcast(ws: WebSocket, channel: str, sid: str):
     async with broadcaster.subscribe(channel) as sub:
         try:
-            async for ev in sub:
+            async for ev in sub:  # type: ignore
                 try:
                     await ws.send_text(ev.message)
                 except Exception as e:

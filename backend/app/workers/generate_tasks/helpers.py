@@ -13,11 +13,10 @@ from services.task_service.service import TaskService
 from utils.task_utils import wait_for_task_in_db
 from utils.uow import UnitOfWork, uow_context
 
+
 # ────────────────────────────────────────────────────────────────────────
 # Task-flow helpers
 # ────────────────────────────────────────────────────────────────────────
-
-
 async def _start_task(uow: UnitOfWork, task_id: str) -> TaskOut:
     task = await wait_for_task_in_db(uow.task_repo, task_id)
     if not task:
@@ -49,11 +48,28 @@ async def _fail_task(task_id: str, error_message: str) -> TaskOut:
 
 
 # ────────────────────────────────────────────────────────────────────────
+# Сессия генерации курса
+# ────────────────────────────────────────────────────────────────────────
+async def _finish_course_generation_session(session_id: str | uuid.UUID | None) -> None:
+    if not session_id:
+        return
+    redis = get_cache_service()
+    await redis.clear_course_generation_in_progress(str(session_id))
+    await redis.set_session_status(str(session_id), "course_generation_done")
+
+
+async def _fail_course_generation_session(session_id: str | uuid.UUID | None) -> None:
+    if not session_id:
+        return
+    redis = get_cache_service()
+    await redis.clear_course_generation_in_progress(str(session_id))
+    await redis.set_session_status(str(session_id), "course_generation_error")
+
+
+# ────────────────────────────────────────────────────────────────────────
 # Навигация по контенту
 # ────────────────────────────────────────────────────────────────────────
-
-
-def _first_by_position(items: Iterable) -> Optional[Any]:
+def _first_by_position(items: Iterable) -> Any | None:
     return min(items, key=lambda x: x.position) if items else None
 
 
@@ -99,22 +115,6 @@ async def _find_next_content_block(
     return None
 
 
-async def _finish_course_generation_session(session_id: str | uuid.UUID | None) -> None:
-    if not session_id:
-        return
-    redis = get_cache_service()
-    await redis.clear_course_generation_in_progress(str(session_id))
-    await redis.set_session_status(str(session_id), "course_generation_done")
-
-
-async def _fail_course_generation_session(session_id: str | uuid.UUID | None) -> None:
-    if not session_id:
-        return
-    redis = get_cache_service()
-    await redis.clear_course_generation_in_progress(str(session_id))
-    await redis.set_session_status(str(session_id), "course_generation_error")
-
-
 async def _enqueue_next_lesson_plan_task(
     ctx,
     lesson,
@@ -130,7 +130,7 @@ async def _enqueue_next_lesson_plan_task(
     )
     if next_lesson:
         await _spawn_lesson_content_plan_task(
-            ctx, next_lesson.id, user_pref_summary, session_id, user_id, gctx, parent_id
+            ctx, next_lesson.id, user_pref_summary, gctx, session_id, user_id, parent_id
         )
         return
 
@@ -149,9 +149,9 @@ async def _enqueue_next_lesson_plan_task(
             ctx,
             first_lesson.id,
             user_pref_summary,
+            gctx,
             session_id,
             user_id,
-            gctx,
             parent_id,
         )
         return
@@ -180,25 +180,125 @@ async def _next_module_or_first_lesson(module_id: uuid.UUID):
         return (first_lesson.id, None)
 
 
-async def _spawn_module_plan_task(ctx, mod_id, pref, sid, uid, gctx, parent):
+# ────────────────────────────────────────────────────────────────────────
+# Задачи-потомки
+# ────────────────────────────────────────────────────────────────────────
+async def _spawn_user_summary_task(
+    ctx,
+    audit_history: str,
+    sid: uuid.UUID | None,
+    uid: uuid.UUID | None,
+    gctx: GenerateTaskContext,
+    parent_id: str | None = None,
+) -> TaskOut:
+    job = await ctx["arq_queue"].enqueue_job(
+        "generate_user_summary",
+        audit_history,
+        gctx,
+        sid,
+        uid,
+        _queue_name="course_generation",
+    )
+    async with uow_context() as uow:
+        return await TaskService(uow).create_task(
+            TaskIn(
+                id=job.job_id,
+                task_type=TaskTypeEnum.generate_user_summary,
+                params={"audit_history": audit_history},
+                session_id=sid,
+                user_id=uid,
+                parent_id=uuid.UUID(parent_id) if parent_id else None,
+            )
+        )
+
+
+async def _spawn_course_base_task(
+    ctx,
+    pref_id: uuid.UUID,
+    gctx: GenerateTaskContext,
+    sid: uuid.UUID | None,
+    uid: uuid.UUID | None,
+    parent_id: str | None = None,
+) -> TaskOut:
+    job = await ctx["arq_queue"].enqueue_job(
+        "generate_course_base",
+        pref_id,
+        gctx,
+        sid,
+        uid,
+        _queue_name="course_generation",
+    )
+    async with uow_context() as uow:
+        return await TaskService(uow).create_task(
+            TaskIn(
+                id=job.job_id,
+                task_type=TaskTypeEnum.generate_course_base,
+                params={"user_pref_id": str(pref_id)},
+                session_id=sid,
+                user_id=uid,
+                parent_id=uuid.UUID(parent_id) if parent_id else None,
+            )
+        )
+
+
+async def _spawn_course_plan_task(
+    ctx,
+    course_id: uuid.UUID,
+    pref: str,
+    gctx: GenerateTaskContext,
+    sid: uuid.UUID | None,
+    uid: uuid.UUID | None,
+    parent_id: str | None = None,
+) -> TaskOut:
+    job = await ctx["arq_queue"].enqueue_job(
+        "generate_course_plan",
+        course_id,
+        pref,
+        gctx,
+        sid,
+        uid,
+        _queue_name="course_generation",
+    )
+    async with uow_context() as uow:
+        return await TaskService(uow).create_task(
+            TaskIn(
+                id=job.job_id,
+                task_type=TaskTypeEnum.generate_course_plan,
+                params={"course_id": str(course_id)},
+                session_id=sid,
+                user_id=uid,
+                parent_id=uuid.UUID(parent_id) if parent_id else None,
+            )
+        )
+
+
+async def _spawn_module_plan_task(
+    ctx,
+    mod_id: uuid.UUID,
+    pref: str,
+    gctx: GenerateTaskContext,
+    sid: uuid.UUID | None,
+    uid: uuid.UUID | None,
+    parent_id: str | None = None,
+) -> TaskOut:
     job = await ctx["arq_queue"].enqueue_job(
         "generate_module_plan",
         mod_id,
         pref,
+        gctx,
         sid,
         uid,
-        gctx,
         _queue_name="course_generation",
     )
     async with uow_context() as uow:
-        await TaskService(uow).create_task(
+        return await TaskService(uow).create_task(
             TaskIn(
                 id=job.job_id,
                 task_type=TaskTypeEnum.generate_module_plan,
                 params={"module_id": str(mod_id)},
                 session_id=sid,
                 user_id=uid,
-                parent_id=parent,
+                parent_id=uuid.UUID(parent_id) if parent_id else None,
             )
         )
 
@@ -207,29 +307,29 @@ async def _spawn_lesson_content_plan_task(
     ctx,
     lesson_id: uuid.UUID,
     user_pref_summary: str,
-    session_id,
-    user_id,
     gctx: GenerateTaskContext,
-    parent_id: str,
-):
+    session_id: uuid.UUID | None,
+    user_id: uuid.UUID | None,
+    parent_id: str | None = None,
+) -> TaskOut:
     job = await ctx["arq_queue"].enqueue_job(
         "generate_lesson_content_plan",
         lesson_id,
         user_pref_summary,
+        gctx,
         session_id,
         user_id,
-        gctx,
         _queue_name="course_generation",
     )
     async with uow_context() as uow:
-        await TaskService(uow).create_task(
+        return await TaskService(uow).create_task(
             TaskIn(
                 id=job.job_id,
                 task_type=TaskTypeEnum.generate_lesson_content_plan,
                 params={"lesson_id": str(lesson_id)},
                 session_id=session_id,
                 user_id=user_id,
-                parent_id=uuid.UUID(parent_id),
+                parent_id=uuid.UUID(parent_id) if parent_id else None,
             )
         )
 
@@ -239,29 +339,29 @@ async def _spawn_generate_content_task(
     block_id: uuid.UUID,
     lesson_id: uuid.UUID,
     user_pref_summary: str,
-    session_id,
-    user_id,
-    parent_id: str,
-    gctx: GenerateTaskContext | None = None,
-):
+    gctx: GenerateTaskContext,
+    session_id: uuid.UUID | None,
+    user_id: uuid.UUID | None,
+    parent_id: str | None = None,
+) -> TaskOut:
     job = await ctx["arq_queue"].enqueue_job(
         "generate_content",
         block_id,
         lesson_id,
         user_pref_summary,
+        gctx,
         session_id,
         user_id,
-        gctx,
         _queue_name="course_generation",
     )
     async with uow_context() as uow:
-        await TaskService(uow).create_task(
+        return await TaskService(uow).create_task(
             TaskIn(
                 id=job.job_id,
                 task_type=TaskTypeEnum.generate_content,
                 params={"content_block_id": str(block_id)},
                 session_id=session_id,
                 user_id=user_id,
-                parent_id=uuid.UUID(parent_id),
+                parent_id=uuid.UUID(parent_id) if parent_id else None,
             )
         )

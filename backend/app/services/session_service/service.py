@@ -1,3 +1,4 @@
+from fastapi import Request
 from schemas.session import SessionCreate
 from services import RedisCacheService, get_cache_service
 from utils.uow import UnitOfWork
@@ -51,3 +52,8 @@ class SessionService:
                 user_agent,
             )
         return str(session_db.id)
+
+    async def get_session_id_by_request(self, request: Request) -> str | None:
+        ip = request.client.host if request.client else "unknown"
+        user_agent = request.headers.get("user-agent", "unknown")
+        return await self.get_session_id_by_ip_user_agent(ip, user_agent)

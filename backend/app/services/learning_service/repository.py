@@ -36,7 +36,7 @@ class LearningRepository:
         return course
 
     async def get_courses_by_session_id(
-        self, session_id: uuid.UUID
+        self, session_id: uuid.UUID | str
     ) -> list[CourseModel]:
         stmt = select(CourseModel).where(CourseModel.session_id == session_id)
         result = await self.db.execute(stmt)
