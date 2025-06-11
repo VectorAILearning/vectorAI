@@ -1,6 +1,21 @@
 import React, { useState } from "react";
 
-export default function PracticeContent({ practiceContent }) {
+interface PracticeContentProps {
+  practiceContent: any;
+}
+
+export default function PracticeContent({
+  practiceContent,
+}: PracticeContentProps) {
+  if (!practiceContent || typeof practiceContent.practice !== "string") {
+    return (
+      <div className="text-error">
+        Некорректный формат practice:{" "}
+        <pre>{JSON.stringify(practiceContent, null, 2)}</pre>
+      </div>
+    );
+  }
+
   const [isSolution, setIsSolution] = useState<boolean>(false);
   return (
     <div>
