@@ -10,8 +10,8 @@ tasks_router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 @tasks_router.get("/", response_model=list[TaskOut])
 async def get_all_tasks(
-    current_user: UserModel = is_admin, uow: UnitOfWork = Depends(get_uow)
+    # current_user: UserModel = is_admin,
+    uow: UnitOfWork = Depends(get_uow),
 ):
-    service = TaskService(uow)
     tasks_db = await uow.task_repo.list()
     return [TaskOut.model_validate(task) for task in tasks_db]

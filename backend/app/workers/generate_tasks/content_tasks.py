@@ -23,9 +23,9 @@ async def generate_content(
     content_block_id: uuid.UUID,
     lesson_id: uuid.UUID,
     user_pref_summary: str,
-    session_id: uuid.UUID | None = None,
+    generate_tasks_context: GenerateTaskContext,
     user_id: uuid.UUID | None = None,
-    generate_tasks_context: GenerateTaskContext | None = None,
+    session_id: uuid.UUID | None = None,
 ) -> ContentOut:
     """
     Генерирует content для блока урока и цепляет следующую задачу, если нужно.
@@ -55,14 +55,14 @@ async def generate_content(
                     next_block.id,
                     lesson_id,
                     user_pref_summary,
-                    session_id,
-                    user_id,
-                    ctx["job_id"],
                     generate_tasks_context,
+                    user_id,
+                    session_id,
+                    ctx["job_id"],
                 )
             else:
                 # курс/модуль/урок закончились
-                if generate_tasks_context and generate_tasks_context.main_task_id:
+                if generate_tasks_context.main_task_id:
                     await _finish_task(
                         uow,
                         generate_tasks_context.main_task_id,
@@ -80,6 +80,6 @@ async def generate_content(
         # глобальный фолбэк-обработчик
         await _fail_course_generation_session(session_id)
         await _fail_task(ctx["job_id"], str(e))
-        if generate_tasks_context and generate_tasks_context.main_task_id:
+        if generate_tasks_context.main_task_id:
             await _fail_task(generate_tasks_context.main_task_id, str(e))
         raise

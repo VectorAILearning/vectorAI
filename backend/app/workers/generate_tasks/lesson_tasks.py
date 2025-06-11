@@ -4,7 +4,7 @@ import uuid
 from models.task import TaskTypeEnum
 from schemas.course import ContentOut
 from schemas.generate import GenerateDeepEnum, GenerateTaskContext
-from schemas.task import TaskIn
+from schemas.task import TaskIn, TaskOut
 from services.learning_service.service import LearningService
 from services.task_service.service import TaskService
 from utils import uow_context
@@ -23,18 +23,17 @@ log = logging.getLogger(__name__)
 # ────────────────────────────────────────────────────────────────────────
 # STEP 0: entry-point «урок целиком»
 # ────────────────────────────────────────────────────────────────────────
-async def generate_lesson_content(
+async def generate_lesson(
     ctx,
     lesson_id: uuid.UUID,
     user_pref_summary: str,
-    deep: str,
     session_id: uuid.UUID | None = None,
     user_id: uuid.UUID | None = None,
-) -> None:
+) -> TaskOut:
     gctx = GenerateTaskContext(
         main_task_id=ctx["job_id"],
-        main_task_type=TaskTypeEnum.generate_content,
-        deep=deep,
+        main_task_type=TaskTypeEnum.generate_lesson,
+        deep=GenerateDeepEnum.lesson_content.value,
         session_id=session_id,
         user_id=user_id,
     )
@@ -45,13 +44,13 @@ async def generate_lesson_content(
         "generate_lesson_content_plan",
         lesson_id,
         user_pref_summary,
+        gctx,
         session_id,
         user_id,
-        gctx,
         _queue_name="course_generation",
     )
     async with uow_context() as uow:
-        await TaskService(uow).create_task(
+        return await TaskService(uow).create_task(
             TaskIn(
                 id=job.job_id,
                 task_type=TaskTypeEnum.generate_lesson_content_plan,
@@ -70,9 +69,9 @@ async def generate_lesson_content_plan(
     ctx,
     lesson_id: uuid.UUID,
     user_pref_summary: str,
+    generate_tasks_context: GenerateTaskContext,
     session_id: uuid.UUID | None = None,
     user_id: uuid.UUID | None = None,
-    generate_tasks_context: GenerateTaskContext | None = None,
 ) -> list[ContentOut]:
     try:
         # ── планируем блоки ────────────────────────────────────────────
@@ -92,9 +91,6 @@ async def generate_lesson_content_plan(
             )
 
         # ── решаем, что делать дальше ─────────────────────────────────
-        if not generate_tasks_context:
-            return [ContentOut.model_validate(b) for b in content_blocks]
-
         # 1) сгенерировать контент первого блока
         if generate_tasks_context.deep in (
             GenerateDeepEnum.first_lesson_content.value,
@@ -106,10 +102,10 @@ async def generate_lesson_content_plan(
                 first_block.id,
                 lesson_id,
                 user_pref_summary,
+                generate_tasks_context,
                 session_id,
                 user_id,
                 ctx["job_id"],
-                generate_tasks_context,
             )
             return [ContentOut.model_validate(b) for b in content_blocks]
 
