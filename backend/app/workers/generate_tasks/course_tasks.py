@@ -85,7 +85,11 @@ async def generate_course_base(
             )
 
             await push_and_publish(
-                _msg("bot", "Структура курса сгенерирована!", "course_generation_done"),
+                _msg("system", "Структура курса сгенерирована!", "course_generation_done"),
+                session_id,
+            )
+            await push_and_publish(
+                _msg("bot", "Структура курса сгенерирована!", "chat_info"),
                 session_id,
             )
             await _finish_course_generation_session(session_id)
