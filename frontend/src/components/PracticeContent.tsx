@@ -7,7 +7,7 @@ interface PracticeContentProps {
 export default function PracticeContent({
   practiceContent,
 }: PracticeContentProps) {
-  if (!practiceContent || typeof practiceContent.practice !== "string") {
+  if (!practiceContent || typeof practiceContent.task !== "string") {
     return (
       <div className="text-error">
         Некорректный формат practice:{" "}
