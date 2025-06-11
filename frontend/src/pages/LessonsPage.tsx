@@ -285,7 +285,7 @@ export default function LessonsPage() {
         </aside>
       )}
       <main
-        className="flex-1 bg-base-100 text-base-content flex justify-center overflow-y-auto"
+        className="flex-1 text-base-content flex justify-center overflow-y-auto"
         style={{ maxHeight: "90vh" }}
       >
         <div className="max-w-3xl w-full p-8">
@@ -299,66 +299,50 @@ export default function LessonsPage() {
             {selectedLessons?.contents &&
               selectedLessons.contents.length > 0 && (
                 <div className="mt-8">
-                  <h2 className="text-2xl font-semibold mb-4 text-center">
-                    Контент урока
-                  </h2>
-                  <ul className="space-y-4">
-                    {isLoading ? (
-                      <span className="loading loading-spinner loading-xl"></span>
-                    ) : (
-                      selectedLessons.contents.map(
-                        (block: any, idx: number) => (
-                          <li
-                            key={block.id || idx}
-                            className="p-4 rounded bg-base-200"
-                          >
-                            <div className="font-bold mb-1">
-                              {block.position}. {block.type.toUpperCase()}
-                              <p></p>
-                            </div>
-                            {block.type === "text" && (
-                              <TextContent textContent={block.content} />
-                            )}
-                            {block.type === "video" && (
-                              <VideoContent videoContent={block.content} />
-                            )}
-                            {block.type === "examples" && (
-                              <ExamplesContent
-                                examplesContent={block.content}
-                              />
-                            )}
-                            {block.type === "mistakes" && (
-                              <MistakesContent
-                                mistakesContent={block.content}
-                              />
-                            )}
-                            {block.type === "dialog" && (
-                              <DialogContent dialogContent={block.content} />
-                            )}
-                            {block.type === "practice" && (
-                              <PracticeContent
-                                practiceContent={block.content}
-                              />
-                            )}
+                  {isLoading ? (
+                    <span className="loading loading-spinner loading-xl"></span>
+                  ) : (
+                    selectedLessons.contents.map((block: any, idx: number) => (
+                      <div
+                        key={block.id || idx}
+                        className="relative prose prose-lg my-10"
+                      >
+                        <div className="absolute bottom-0 right-0 text-sm text-base-content/70 text-primary font-semibold">
+                          {block.type.toUpperCase()}
+                        </div>
+                        {block.type === "text" && (
+                          <TextContent textContent={block.content} />
+                        )}
+                        {block.type === "video" && (
+                          <VideoContent videoContent={block.content} />
+                        )}
+                        {block.type === "examples" && (
+                          <ExamplesContent examplesContent={block.content} />
+                        )}
+                        {block.type === "mistakes" && (
+                          <MistakesContent mistakesContent={block.content} />
+                        )}
+                        {block.type === "dialog" && (
+                          <DialogContent dialogContent={block.content} />
+                        )}
+                        {block.type === "practice" && (
+                          <PracticeContent practiceContent={block.content} />
+                        )}
 
-                            {block.type === "open_answer" && (
-                              <TestContent testContent={block.content} />
-                            )}
-                            {block.type === "reflection" && (
-                              <ReflectionContent
-                                reflectionContent={block.content}
-                              />
-                            )}
-                            {block.type === "test" && (
-                              <QuestionContent
-                                questionContent={block.content}
-                              />
-                            )}
-                          </li>
-                        ),
-                      )
-                    )}
-                  </ul>
+                        {block.type === "open_answer" && (
+                          <TestContent testContent={block.content} />
+                        )}
+                        {block.type === "reflection" && (
+                          <ReflectionContent
+                            reflectionContent={block.content}
+                          />
+                        )}
+                        {block.type === "test" && (
+                          <QuestionContent questionContent={block.content} />
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
           </>

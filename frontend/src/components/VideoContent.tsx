@@ -1,26 +1,32 @@
-import React from "react";
+interface VideoContentProps {
+  videoContent: any;
+}
 
-export default function VideoContent({ videoContent }) {
+export default function VideoContent({ videoContent }: VideoContentProps) {
+  if (
+    !videoContent ||
+    typeof videoContent.title !== "string" ||
+    typeof videoContent.description !== "string" ||
+    typeof videoContent.url !== "string"
+  ) {
+    return (
+      <div className="text-error">
+        Некорректный формат video:{" "}
+        <pre>{JSON.stringify(videoContent, null, 2)}</pre>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col items-center">
-      <div className="font-semibold">{videoContent.title}</div>
-      <div className="text-center">{videoContent.description}</div>
-
-      {videoContent.url && (
-        <iframe
-          width="560"
-          height="315"
-          src={
-            "https://www.youtube.com/embed/" +
-            videoContent.url.split("").splice(-11).join("")
-          }
-          title="YouTube video player"
-          frameborder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          referrerpolicy="strict-origin-when-cross-origin"
-          allowfullscreen
-        ></iframe>
-      )}
+    <div className="bg-base-200 p-2 rounded">
+      <div className="font-bold mb-1">{videoContent.title}</div>
+      <div className="mb-2 text-base-content/70">
+        {videoContent.description}
+      </div>
+      <video controls className="w-full max-h-96 rounded">
+        <source src={videoContent.url} type="video/mp4" />
+        Ваш браузер не поддерживает видео.
+      </video>
     </div>
   );
 }

@@ -16,26 +16,24 @@ export default function QuestionContent({ questionContent }) {
   return (
     <div>
       <div className="font-semibold">{questionContent.question}</div>
-      <ul className="ml-6">
-        {questionContent.options?.map((opt: string, i: number) => (
-          <li key={i}>
-            <div>
-              <input
-                disabled={isSolution}
-                type="radio"
-                name="question_options"
-                id=""
-                value={opt}
-                onChange={() => setSelectedOptions(opt)}
-              />
-              <label className="ml-[10px]" htmlFor="">
-                {opt}
-              </label>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <div>
+      {questionContent.options?.map((opt: string, i: number) => (
+        <div key={i}>
+          <div className="mb-2">
+            <input
+              disabled={isSolution}
+              type="checkbox"
+              name="question_options"
+              id=""
+              value={opt}
+              onChange={() => setSelectedOptions(opt)}
+            />
+            <label className="ml-[10px]" htmlFor="">
+              {opt}
+            </label>
+          </div>
+        </div>
+      ))}
+      <div className="mt-3">
         <button
           onClick={handleSubmit}
           disabled={isSolution}
