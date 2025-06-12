@@ -1,6 +1,8 @@
 import { configureStore } from "@reduxjs/toolkit";
 import sessionReducer from "./sessionSlice";
 import userReducer from "./userProfileSlice.ts";
+import uiReducer from "./uiSlice.ts";
+import userCoursesReducer from "./userCoursesSlice.ts";
 
 import {
   type TypedUseSelectorHook,
@@ -12,6 +14,8 @@ export const store = configureStore({
   reducer: {
     session: sessionReducer,
     user: userReducer,
+    userCourses: userCoursesReducer,
+    ui: uiReducer,
   },
 });
 

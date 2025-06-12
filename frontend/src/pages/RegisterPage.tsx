@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import FormVerify from "../components/FormVerify";
+import FormVerify from "../components/auth/FormVerify";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState<string>("");
