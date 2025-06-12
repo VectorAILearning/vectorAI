@@ -4,7 +4,7 @@ import "./index.css";
 import App from "./App.tsx";
 import { Provider } from "react-redux";
 import { store } from "./store";
-import 'tippy.js/dist/tippy.css';
+import "tippy.js/dist/tippy.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
