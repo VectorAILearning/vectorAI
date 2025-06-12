@@ -1,3 +1,5 @@
+import ReactMarkdown from "react-markdown";
+
 interface ReflectionContentProps {
   reflectionContent: any;
 }
@@ -15,8 +17,16 @@ export default function ReflectionContent({
   }
   return (
     <div>
-      <span className="font-semibold">Рефлексия:</span>{" "}
-      {reflectionContent.prompt}
+      <ReactMarkdown>{reflectionContent.prompt}</ReactMarkdown>
+      <div className="mt-2">
+        <textarea
+          className="textarea w-full"
+          placeholder="Ваш ответ"
+        ></textarea>
+        <div className="flex justify-center mt-2">
+          <button className="btn btn-primary">Сохранить</button>
+        </div>
+      </div>
     </div>
   );
 }

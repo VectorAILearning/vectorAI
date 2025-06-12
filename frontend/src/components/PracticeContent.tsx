@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 interface PracticeContentProps {
   practiceContent: any;
@@ -19,7 +20,7 @@ export default function PracticeContent({
   const [isSolution, setIsSolution] = useState<boolean>(false);
   return (
     <div>
-      <h6>{practiceContent.task}</h6>
+      <ReactMarkdown>{practiceContent.task}</ReactMarkdown>
       <div className="mt-[10px]">
         <textarea
           className="textarea w-full"

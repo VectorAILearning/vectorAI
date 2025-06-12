@@ -9,6 +9,7 @@ import QuestionContent from "../components/QuestionContent";
 import ReflectionContent from "../components/ReflectionContent";
 import PracticeContent from "../components/PracticeContent";
 import CodeContent from "../components/CodeContent";
+import { FiRefreshCw } from "react-icons/fi";
 
 export default function LessonsPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -103,6 +104,16 @@ export default function LessonsPage() {
         setSelectedLessons(data);
         console.log(data);
       });
+  };
+  function handleRegenerateLesson(lessonId: string) {
+    const apiHost = import.meta.env.VITE_API_HOST;
+    fetch(`${apiHost}/api/v1/lesson/${lessonId}/generate-content?force=true`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    alert("Урок в процессе перегенерации! Не нажимайте на кнопку снова!");
   };
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -269,10 +280,20 @@ export default function LessonsPage() {
                       <li key={lidx}>
                         <Link
                           to={`/course/${courseId}/lesson/${lesson.id}`}
-                          className="text-base"
-                          onClick={() => getLessonId(lesson.id)}
+                          className="text-base justify-between"
                         >
                           {lesson.title}
+                          <button
+                            className="btn btn-ghost btn-xs w-8 h-8"
+                            title="Перегенерировать урок"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleRegenerateLesson(lesson.id);
+                            }}
+                          >
+                            <FiRefreshCw className="w-4 h-4" />
+                          </button>
                         </Link>
                       </li>
                     ))}

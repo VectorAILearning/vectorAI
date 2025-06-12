@@ -13,9 +13,5 @@ export default function TextContent({ textContent }: TextContentProps) {
       </div>
     );
   }
-  return (
-    <div>
-      <ReactMarkdown>{textContent.text}</ReactMarkdown>
-    </div>
-  );
+  return <ReactMarkdown>{textContent.text}</ReactMarkdown>;
 }
