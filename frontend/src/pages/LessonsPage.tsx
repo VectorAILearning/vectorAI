@@ -10,6 +10,7 @@ import ReflectionContent from "../components/ReflectionContent";
 import PracticeContent from "../components/PracticeContent";
 import CodeContent from "../components/CodeContent";
 import { FiRefreshCw } from "react-icons/fi";
+import Tippy from '@tippyjs/react';
 
 export default function LessonsPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -283,17 +284,18 @@ export default function LessonsPage() {
                           className="text-base justify-between"
                         >
                           {lesson.title}
-                          <button
-                            className="btn btn-ghost btn-xs w-8 h-8"
-                            title="Перегенерировать урок"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleRegenerateLesson(lesson.id);
-                            }}
-                          >
-                            <FiRefreshCw className="w-4 h-4" />
-                          </button>
+                          <Tippy content="Перегенерировать урок">
+                            <button
+                              className="btn btn-ghost btn-xs w-8 h-8"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleRegenerateLesson(lesson.id);
+                              }}
+                            >
+                              <FiRefreshCw className="w-4 h-4" />
+                            </button>
+                          </Tippy>
                         </Link>
                       </li>
                     ))}
