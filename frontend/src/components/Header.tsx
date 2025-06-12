@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAppSelector } from "../store";
+import { useAppDispatch, useAppSelector } from "../store";
 import { useTheme } from "../hooks/useTheme.ts";
 import { FaMoon, FaSun } from "react-icons/fa";
+import { logOut } from "../store/authSlice.ts";
 
 interface HeaderProps {
   onLogin: () => void;
@@ -14,12 +15,18 @@ export default function Header() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
 
+  const dispatch = useAppDispatch();
+
   const { username, avatar } = useAppSelector((state) => state.user);
+  const { isAuth } = useAppSelector((state) => state.auth);
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const handleLogin = () => {
+    if (isAuth) {
+      dispatch(logOut());
+    }
     navigate("/auth");
   };
 
@@ -30,7 +37,12 @@ export default function Header() {
 
   return (
     <header className="w-full flex justify-between items-center p-4 bg-base-200">
-      <div className="text-2xl font-bold text-primary cursor-pointer" onClick={() => navigate("/")}>ВЕКТОР</div>
+      <div
+        className="text-2xl font-bold text-primary cursor-pointer"
+        onClick={() => navigate("/")}
+      >
+        ВЕКТОР
+      </div>
       <div className="flex items-center space-x-4 justify-end w-1/3">
         <label className="flex cursor-pointer gap-2 items-center">
           <FaSun
@@ -47,15 +59,15 @@ export default function Header() {
             className={`transition-colors ${theme === "dark" ? "text-blue-400" : "text-gray-400"}`}
           />
         </label>
-        {location == "/" && (
+        {location == "/" && !isAuth && (
           <div className="flex gap-4">
             <button className="btn btn-primary" onClick={handleLogin}>
-              Вход
+             Вход
             </button>
           </div>
         )}
         {location === "/courses" ||
-          (location === "/profile" && (
+          (isAuth  && (
             <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -105,7 +117,10 @@ export default function Header() {
                       </Link>
                     </li>
                     <li>
-                      <a className="text-base-content hover:bg-base-300">
+                      <a
+                        className="text-base-content hover:bg-base-300"
+                        onClick={handleLogin}
+                      >
                         Выход
                       </a>
                     </li>

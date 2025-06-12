@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import AuthPage from "./pages/AuthPage";
 import CoursesPage from "./pages/CoursesPage";
@@ -10,6 +10,10 @@ import UserProfilePage from "./pages/UserProfilePage.tsx";
 import LessonsPage from "./pages/LessonsPage.tsx";
 import CourseRedirectPage from "./pages/CourseRedirectPage.tsx";
 import GenerateTasksPage from "./pages/GenerateTasksPage.tsx";
+import CheckEmailPage from "./pages/CheckEmailPage.tsx";
+import VerifyEmailPage from "./pages/VerifyEmailPage.tsx";
+import PrivateRoute from "./components/PrivateRoute.tsx";
+import PublicRoute from "./components/PublicRoute.tsx";
 
 export default function App() {
   return (
@@ -17,8 +21,14 @@ export default function App() {
       <Routes>
         <Route path="/" element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/course" element={<CourseRedirectPage />} />
+          <Route
+            path="/auth"
+            element={
+              <PublicRoute>
+                <AuthPage />
+              </PublicRoute>
+            }
+          />
           <Route path="/course/:courseId" element={<CoursesPage />} />
           <Route
             path="/course/:courseId/lesson/:lessonId"
@@ -27,8 +37,18 @@ export default function App() {
           <Route path="/auth/recover" element={<ForgetPasswordPage />} />
           <Route path="/auth/changepass" element={<ChangePasswordPage />} />
           <Route path="/auth/register" element={<RegisterPage />} />
-          <Route path="/profile" element={<UserProfilePage />} />
           <Route path="/generate_tasks" element={<GenerateTasksPage />} />
+
+          <Route
+            path="/profile"
+            element={
+              <PrivateRoute>
+                <UserProfilePage />
+              </PrivateRoute>
+            }
+          />
+          <Route path="/check_email" element={<CheckEmailPage />} />
+          <Route path="/verify_email" element={<VerifyEmailPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
