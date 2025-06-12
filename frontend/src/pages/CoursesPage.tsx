@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, use } from "react";
 import { FaMoon, FaSun } from "react-icons/fa";
 import { useNavigate, useParams, Link } from "react-router-dom";
+import { FiRefreshCw } from "react-icons/fi";
 
 const CoursePage: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -80,6 +81,17 @@ const CoursePage: React.FC = () => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
+
+  function handleRegenerateLesson(lessonId: string) {
+    const apiHost = import.meta.env.VITE_API_HOST;
+    fetch(`${apiHost}/api/v1/lesson/${lessonId}/generate-content?force=true`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    alert("Урок в процессе перегенерации! Не нажимайте на кнопку снова!");
+  }
 
   return (
     <div className="flex h-screen bg-base-100 text-lg">
@@ -241,9 +253,20 @@ const CoursePage: React.FC = () => {
                       <li key={lidx}>
                         <Link
                           to={`/course/${courseId}/lesson/${lesson.id}`}
-                          className="text-base"
+                          className="text-base justify-between"
                         >
                           {lesson.title}
+                          <button
+                            className="btn btn-ghost btn-xs w-8 h-8"
+                            title="Перегенерировать урок"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleRegenerateLesson(lesson.id);
+                            }}
+                          >
+                            <FiRefreshCw className="w-4 h-4" />
+                          </button>
                         </Link>
                       </li>
                     ))}

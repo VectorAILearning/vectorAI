@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 export default function QuestionContent({ questionContent }) {
-  // Проверка на отсутствие или некорректность данных
   if (
     !questionContent ||
     typeof questionContent !== "object" ||
@@ -30,7 +30,7 @@ export default function QuestionContent({ questionContent }) {
   };
   return (
     <div>
-      <div className="font-semibold">{questionContent.question}</div>
+      <ReactMarkdown>{questionContent.question}</ReactMarkdown>
       {questionContent.options?.map((opt: string, i: number) => (
         <div key={i}>
           <div className="mb-2">
@@ -42,7 +42,7 @@ export default function QuestionContent({ questionContent }) {
               value={opt}
               onChange={() => setSelectedOptions(opt)}
             />
-            <label className="ml-[10px]" htmlFor="">
+            <label className="ml-2" htmlFor="">
               {opt}
             </label>
           </div>
@@ -52,7 +52,7 @@ export default function QuestionContent({ questionContent }) {
         <button
           onClick={handleSubmit}
           disabled={isSolution}
-          className="btn btn-primary"
+          className="btn btn-primary mt-2"
         >
           Ответить
         </button>

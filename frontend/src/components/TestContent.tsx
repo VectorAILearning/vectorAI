@@ -1,3 +1,5 @@
+import ReactMarkdown from "react-markdown";
+
 interface TestContentProps {
   testContent?: any;
 }
@@ -16,5 +18,5 @@ export default function TestContent({ testContent }: TestContentProps) {
     );
   }
 
-  return <div className="bg-base-200 p-2 rounded">{testContent.question}</div>;
+  return <ReactMarkdown>{testContent.question}</ReactMarkdown>;
 }
