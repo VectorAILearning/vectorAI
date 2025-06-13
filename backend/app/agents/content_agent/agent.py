@@ -27,14 +27,20 @@ class ContentPlanAgent(BaseAgent):
         type_: str,
         description: str,
         goal: str,
+        outline: str,
         course_context: str = "",
+        module_context: str = "",
         lesson_context: str = "",
+        previous_outlines: str = "",
     ) -> dict:
         input_data = {
             "type_": type_,
             "description": description,
             "goal": goal,
+            "outline": outline,
             "course_context": course_context,
+            "module_context": module_context,
             "lesson_context": lesson_context,
+            "previous_outlines": previous_outlines,
         }
         return self.call_json_llm(input_data)

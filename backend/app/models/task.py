@@ -21,6 +21,7 @@ class TaskTypeEnum(enum.Enum):
     """Типы задач
     Args:
         generate_course(str): генерация курса полностью (название, описание, цель, модули, уроки, блоки контента)
+        generate_lesson(str): генерация урока полностью (блоки контента в уроке, контент в блоках)
         generate_user_summary(str): генерация предпочтения пользователя
         generate_course_base(str): генерация курса (название, описание, цель)
         generate_course_plan(str): генерация плана курса (модулей в курсе)
@@ -30,6 +31,7 @@ class TaskTypeEnum(enum.Enum):
     """
 
     generate_course = "generate_course"
+    generate_lesson = "generate_lesson"
     generate_user_summary = "generate_user_summary"
     generate_course_base = "generate_course_base"
     generate_course_plan = "generate_course_plan"

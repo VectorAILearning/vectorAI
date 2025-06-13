@@ -3,25 +3,30 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useTheme } from "../hooks/useTheme.ts";
 import { FaMoon, FaSun } from "react-icons/fa";
+import { useSelector } from "react-redux";
+import { toggleSidebar } from "../store/uiSlice.ts";
+import { setSelectedCourse } from "../store/userCoursesSlice.ts";
+import { FiMenu } from "react-icons/fi";
 import { logOut } from "../store/authSlice.ts";
 
 interface HeaderProps {
-  onLogin: () => void;
-  onReset?: () => void;
+  showCourseSelector?: boolean;
+  showSidebarToggle?: boolean;
 }
 
-export default function Header() {
+export default function Header({
+  showCourseSelector = false,
+  showSidebarToggle = false,
+}: HeaderProps) {
   const location = useLocation().pathname;
   const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
-
   const dispatch = useAppDispatch();
 
+  const { theme, setTheme } = useTheme();
   const { username, avatar } = useAppSelector((state) => state.user);
   const { isAuth } = useAppSelector((state) => state.auth);
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const handleLogin = () => {
     if (isAuth) {
@@ -30,20 +35,59 @@ export default function Header() {
     navigate("/auth");
   };
 
+  const courses = showCourseSelector
+    ? useSelector((state: any) => state.userCourses.courses || [])
+    : [];
+  const selectedCourse = showCourseSelector
+    ? useSelector((state: any) => state.userCourses.selectedCourse || null)
+    : null;
+
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
 
   return (
-    <header className="w-full flex justify-between items-center p-4 bg-base-200">
-      <div
-        className="text-2xl font-bold text-primary cursor-pointer"
-        onClick={() => navigate("/")}
-      >
-        ВЕКТОР
+    <header className="w-full flex justify-between items-center p-3 bg-base-300">
+      <div className="flex items-center gap-2">
+        {showSidebarToggle && (
+          <button
+            className="btn btn-ghost btn-circle"
+            onClick={() => dispatch(toggleSidebar())}
+          >
+            <FiMenu className="w-6 h-6" />
+          </button>
+        )}
+        <div
+          className="text-2xl font-bold text-primary cursor-pointer"
+          onClick={() => navigate("/")}
+        >
+          ВЕКТОР
+        </div>
       </div>
-      <div className="flex items-center space-x-4 justify-end w-1/3">
+      {showCourseSelector && (
+        <div className="flex items-center justify-center">
+          <button className="btn btn-primary" onClick={() => navigate("/")}>
+            Создать курс
+          </button>
+          <select
+            className="ml-2 select"
+            value={selectedCourse?.id || ""}
+            onChange={(e) => {
+              const course = courses.find((c: any) => c.id === e.target.value);
+              dispatch(setSelectedCourse(course));
+              navigate(`/course/${course.id}`);
+            }}
+          >
+            {courses.map((course: any) => (
+              <option key={course.id} value={course.id}>
+                {course.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <div className="flex items-center justify-end">
         <label className="flex cursor-pointer gap-2 items-center">
           <FaSun
             className={`transition-colors ${theme === "light" ? "text-yellow-400" : "text-gray-400"}`}
@@ -68,7 +112,7 @@ export default function Header() {
         )}
         {location === "/courses" ||
           (isAuth  && (
-            <div className="relative" ref={userMenuRef}>
+            <div className="relative" >
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="btn btn-ghost flex items-center space-x-2"

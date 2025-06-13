@@ -2,14 +2,21 @@ import json
 import logging
 import uuid
 
-from agents.lesson_agent.agent import LessonPlanAgent
 from agents.plan_agent.agent import CoursePlanAgent
 from models import ContentModel, CourseModel, PreferenceModel
 from models.content import ContentType
 from models.course import LessonModel, ModuleModel
 from pydantic import ValidationError
 from schemas import CourseUpdate, PreferenceUpdate
-from schemas.course import ContentOut, CourseOut, ModuleOut
+from schemas.course import (
+    ContentOut,
+    CourseOut,
+    CourseStructureOut,
+    CourseStructureWithModulesOut,
+    LessonStructureOut,
+    ModuleStructureOut,
+    ModuleStructureWithLessonsOut,
+)
 from utils.uow import UnitOfWork
 
 log = logging.getLogger(__name__)
@@ -40,11 +47,11 @@ class LearningService:
         self, course_id: uuid.UUID, user_preferences: str
     ) -> list[ModuleModel]:
         course = await self.uow.learning_repo.get_course_by_id(course_id)
-        course_structure_json = CourseOut.model_validate(course).model_dump()
+        course_structure_json = CourseStructureWithModulesOut.model_validate(
+            course
+        ).model_dump_json()
         module_plan = self.agent.generate_module_plan(
-            course_structure_json=json.dumps(
-                course_structure_json, ensure_ascii=False, default=str
-            ),
+            course_structure_json=course_structure_json,
             user_preferences=user_preferences,
         )
         module_list = []
@@ -64,15 +71,15 @@ class LearningService:
         if not module.course:
             raise ValueError(f"Модуль {module_id} не имеет курса")
 
-        course_structure_json = CourseOut.model_validate(module.course).model_dump()
-        module_structure_json = ModuleOut.model_validate(module).model_dump()
+        course_structure_json = CourseStructureWithModulesOut.model_validate(
+            module.course
+        ).model_dump_json()
+        module_structure_json = ModuleStructureWithLessonsOut.model_validate(
+            module
+        ).model_dump_json()
         lesson_plan = self.agent.generate_lesson_plan(
-            course_structure_json=json.dumps(
-                course_structure_json, ensure_ascii=False, default=str
-            ),
-            module_structure_json=json.dumps(
-                module_structure_json, ensure_ascii=False, default=str
-            ),
+            course_structure_json=course_structure_json,
+            module_structure_json=module_structure_json,
             user_preferences=user_preferences,
         )
         lesson_list = []
@@ -112,22 +119,36 @@ class LearningService:
     async def get_lesson_by_id(self, lesson_id: uuid.UUID):
         return await self.uow.learning_repo.get_lesson_by_id(lesson_id)
 
+    async def get_first_module_by_course_id(self, course_id: uuid.UUID):
+        course = await self.uow.learning_repo.get_course_by_id(course_id)
+        if not course:
+            raise ValueError(f"Курс {course_id} не найден")
+        return min(course.modules, key=lambda m: m.position)
+
+    async def get_first_lesson_by_module_id(self, module_id: uuid.UUID):
+        module = await self.uow.learning_repo.get_module_by_id(module_id)
+        if not module:
+            raise ValueError(f"Модуль {module_id} не найден")
+        return min(module.lessons, key=lambda l: l.position)
+
     async def generate_and_save_lesson_content_plan(
         self, lesson_id: uuid.UUID, user_preferences: str = ""
     ) -> list[ContentModel]:
         lesson: LessonModel = await self.uow.learning_repo.get_lesson_by_id(lesson_id)
         if not lesson:
             raise ValueError(f"Урок {lesson_id} не найден")
-        if not lesson.module:
-            raise ValueError(f"Урок {lesson_id} не имеет модуля")
 
-        course_dict = CourseOut.model_validate(lesson.module.course).model_dump()
-        content_plan = LessonPlanAgent().generate_lesson_content_plan(
-            lesson_description=f"{lesson.title}. {lesson.description}. Цель: {lesson.goal}",
+        content_plan = CoursePlanAgent().generate_lesson_content_plan(
+            lesson_structure_json=LessonStructureOut.model_validate(
+                lesson
+            ).model_dump_json(),
+            module_structure_json=ModuleStructureWithLessonsOut.model_validate(
+                lesson.module
+            ).model_dump_json(),
+            course_structure_json=CourseStructureWithModulesOut.model_validate(
+                lesson.module.course
+            ).model_dump_json(),
             user_preferences=user_preferences,
-            course_structure_json=json.dumps(
-                course_dict, ensure_ascii=False, default=str
-            ),
         )
         if not isinstance(content_plan, list):
             raise ValueError(
@@ -148,6 +169,7 @@ class LearningService:
                 goal=content_obj.goal,
                 content=content_obj.content,
                 position=content_obj.position,
+                outline=content_obj.outline,
             )
             self.uow.session.add(db_content)
             content_list.append(db_content)

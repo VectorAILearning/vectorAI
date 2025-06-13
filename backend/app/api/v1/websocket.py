@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 async def pipe_broadcast(ws: WebSocket, channel: str, sid: str):
     async with broadcaster.subscribe(channel) as sub:
         try:
-            async for ev in sub:
+            async for ev in sub:  # type: ignore
                 try:
                     await ws.send_text(ev.message)
                 except Exception as e:
@@ -25,9 +25,9 @@ async def pipe_broadcast(ws: WebSocket, channel: str, sid: str):
                     break
                 log.info(ev.message)
                 log.info(json.loads(ev.message).get("type"))
-                log.info(json.loads(ev.message).get("text") == "course_created_done")
+                log.info(json.loads(ev.message).get("text") == "course_generation_done")
                 if json.loads(ev.message).get("type") in [
-                    "course_created_done",
+                    "course_generation_done",
                     "course_generation_error",
                 ]:
                     log.info(f"broadcast_task down for sid={sid}")
@@ -56,7 +56,7 @@ async def audit_websocket(ws: WebSocket, session_id: str = Query(...)):
         session_status = await cache_service.get_session_status(session_id)
         log.info(f"session_status: {session_status}")
         broadcast_task = None
-        if session_status not in ["course_created_done", "course_generation_error"]:
+        if session_status not in ["course_generation_done", "course_generation_error"]:
             broadcast_task = asyncio.create_task(
                 pipe_broadcast(ws, f"chat_{session_id}", session_id)
             )

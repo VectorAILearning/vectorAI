@@ -8,6 +8,7 @@ from workers.generate_tasks import (
     generate_course,
     generate_course_base,
     generate_course_plan,
+    generate_lesson,
     generate_lesson_content_plan,
     generate_module_plan,
     generate_user_summary,
@@ -40,6 +41,7 @@ async def on_shutdown(ctx):
 class WorkerSettings:
     functions = [
         generate_course,
+        generate_lesson,
         generate_course_base,
         generate_course_plan,
         generate_module_plan,
