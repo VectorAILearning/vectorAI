@@ -1,17 +1,42 @@
-import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { type FormEvent, useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAppDispatch, useAppSelector } from "../store";
+import { loginUser } from "../store/auth/authThunks.ts";
+import { clearAuthState } from "../store/authSlice.ts";
 
 export default function AuthPage() {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
 
+  const navigate = useNavigate();
+
+  const error = useAppSelector((state) => state.auth.error);
+  const dispatch = useAppDispatch();
+
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const result = await dispatch(
+      loginUser({ username: email, password: password }),
+    );
+
+    if (loginUser.fulfilled.match(result)) {
+      navigate("/");
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      dispatch(clearAuthState());
+    };
+  }, []);
   return (
     <section className="min-h-screen flex flex-col items-center justify-center p-4 bg-base-100">
       <div className="flex items-center w-full max-w-md flex-col mx-auto gap-5 p-8 bg-base-200 rounded-xl shadow-lg border border-base-300">
         <h6 className="mb-5 text-center text-xl text-base-content">
           Авторизация
         </h6>
-        <form>
+        {error && <h1 className="text-red-600">{error}</h1>}
+        <form onSubmit={onSubmit}>
           <div className="flex flex-col gap-3">
             {/* input email */}
             <div className="flex">
@@ -74,8 +99,7 @@ export default function AuthPage() {
                   type="password"
                   required
                   placeholder="Пароль"
-                  minLength={8}
-                  pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
+                  // pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
                   title="Должно быть более 8 символов, включая цифры, строчные буквы, заглавные буквы"
                   className="text-base-content"
                   onChange={(e) => setPassword(e.target.value)}
