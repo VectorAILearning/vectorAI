@@ -4,13 +4,11 @@ import ChatButton from "../components/ChatButton.tsx";
 
 const MainLayout = () => {
   return (
-    <>
-      <div className="relative h-screen overflow-hidden">
-        <Header />
-        <Outlet />
-        <ChatButton />
-      </div>
-    </>
+    <div className="relative h-screen overflow-hidden pt-16">
+      <Header />
+      <Outlet />
+      <ChatButton />
+    </div>
   );
 };
 

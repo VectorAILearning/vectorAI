@@ -48,7 +48,7 @@ export default function Header({
   }, [theme]);
 
   return (
-    <header className="w-full flex justify-between items-center p-3 bg-base-300">
+    <header className="fixed top-0 left-0 right-0 w-full h-16 flex justify-between items-center p-3 bg-base-300 z-50">
       <div className="flex items-center gap-2">
         {showSidebarToggle && (
           <button
