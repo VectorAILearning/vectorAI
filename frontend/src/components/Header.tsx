@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useTheme } from "../hooks/useTheme.ts";
@@ -87,7 +87,7 @@ export default function Header({
           </select>
         </div>
       )}
-      <div className="flex items-center justify-end">
+      <div className="flex items-center gap-4">
         <label className="flex cursor-pointer gap-2 items-center">
           <FaSun
             className={`transition-colors ${theme === "light" ? "text-yellow-400" : "text-gray-400"}`}
@@ -115,10 +115,10 @@ export default function Header({
             <div className="relative" >
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="btn btn-ghost flex items-center space-x-2"
+                className="btn btn-ghost"
               >
                 <div className="avatar">
-                  <div className="ring-primary ring-offset-base-100 w-5 rounded-full ring-2 ring-offset-2">
+                  <div className="ring-primary w-5 rounded-full ring-2 ring-offset-2">
                     {avatar ? (
                       <img src={avatar} />
                     ) : (
@@ -147,9 +147,9 @@ export default function Header({
                 </svg>
               </button>
               {isUserMenuOpen && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-base-200 rounded-lg shadow-lg">
+                <div className="absolute rounded-sm shadow-lg bg-base-200">
                   <ul
-                    className="menu bg-base-200 p-2"
+                    className="menu menu-compact"
                     onClick={() => setIsUserMenuOpen(false)}
                   >
                     <li>
