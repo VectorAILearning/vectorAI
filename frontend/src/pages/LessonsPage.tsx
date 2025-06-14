@@ -8,6 +8,29 @@ import PracticeContent from "../components/lesson_content/PracticeContent";
 import CodeContent from "../components/lesson_content/CodeContent";
 import { useSelector } from "react-redux";
 
+function LessonBlock({ block }: { block: any }) {
+  switch (block.type) {
+    case "text":
+      return <TextContent textContent={block.content} />;
+    case "video":
+      return <VideoContent videoContent={block.content} />;
+    case "dialog":
+      return <DialogContent dialogContent={block.content} />;
+    case "practice":
+      return <PracticeContent practiceContent={block.content} />;
+    case "code":
+      return <CodeContent codeContent={block.content} />;
+    case "open_answer":
+      return <TestContent testContent={block.content} />;
+    case "reflection":
+      return <ReflectionContent reflectionContent={block.content} />;
+    case "test":
+      return <QuestionContent questionContent={block.content} />;
+    default:
+      return null;
+  }
+}
+
 export default function LessonsPage() {
   const selectedLesson = useSelector(
     (state: any) => state.userCourses.selectedLesson,
@@ -15,11 +38,9 @@ export default function LessonsPage() {
 
   return (
     <div className="max-w-3xl w-full">
-      <div className="my-8 prose prose-md">
-        <h1 className="mt-8 text-center">
-          {selectedLesson?.title || selectedLesson?.detail}
-        </h1>
-        <p className="text-center">{selectedLesson?.description}</p>
+      <div className="my-8 prose prose-md mx-auto text-center">
+        <h1>{selectedLesson?.title || selectedLesson?.detail}</h1>
+        <p>{selectedLesson?.description}</p>
       </div>
 
       {selectedLesson?.contents && selectedLesson.contents.length > 0 && (
@@ -27,35 +48,14 @@ export default function LessonsPage() {
           {selectedLesson.contents.map((block: any, idx: number) => (
             <div
               key={block.id || idx}
-              className="relative bg-base-200 rounded-md p-6 prose prose-md mb-3"
+              className="relative bg-base-200 rounded-md p-5 mb-3"
             >
+              <div className="prose prose-md mx-auto">
+                <LessonBlock block={block} />
+              </div>
               <div className="absolute bottom-2 right-2 text-sm text-base-content/70 text-primary font-semibold">
                 {block.type.toUpperCase()}
               </div>
-              {block.type === "text" && (
-                <TextContent textContent={block.content} />
-              )}
-              {block.type === "video" && (
-                <VideoContent videoContent={block.content} />
-              )}
-              {block.type === "dialog" && (
-                <DialogContent dialogContent={block.content} />
-              )}
-              {block.type === "practice" && (
-                <PracticeContent practiceContent={block.content} />
-              )}
-              {block.type === "code" && (
-                <CodeContent codeContent={block.content} />
-              )}
-              {block.type === "open_answer" && (
-                <TestContent testContent={block.content} />
-              )}
-              {block.type === "reflection" && (
-                <ReflectionContent reflectionContent={block.content} />
-              )}
-              {block.type === "test" && (
-                <QuestionContent questionContent={block.content} />
-              )}
             </div>
           ))}
         </>

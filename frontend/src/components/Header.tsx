@@ -7,6 +7,7 @@ import { useSelector } from "react-redux";
 import { toggleSidebar } from "../store/uiSlice.ts";
 import { setSelectedCourse } from "../store/userCoursesSlice.ts";
 import { FiMenu } from "react-icons/fi";
+import { logOut } from "../store/authSlice.ts";
 
 interface HeaderProps {
   showCourseSelector?: boolean;
@@ -23,9 +24,14 @@ export default function Header({
 
   const { theme, setTheme } = useTheme();
   const { username, avatar } = useAppSelector((state) => state.user);
+  const { isAuth } = useAppSelector((state) => state.auth);
+
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const handleLogin = () => {
+    if (isAuth) {
+      dispatch(logOut());
+    }
     navigate("/auth");
   };
 
@@ -42,7 +48,7 @@ export default function Header({
   }, [theme]);
 
   return (
-    <header className="w-full flex justify-between items-center p-3 bg-base-300">
+    <header className="fixed top-0 left-0 right-0 w-full h-16 flex justify-between items-center p-3 bg-base-300 z-50">
       <div className="flex items-center gap-2">
         {showSidebarToggle && (
           <button
@@ -81,7 +87,7 @@ export default function Header({
           </select>
         </div>
       )}
-      <div className="flex items-center justify-end">
+      <div className="flex items-center gap-4">
         <label className="flex cursor-pointer gap-2 items-center">
           <FaSun
             className={`transition-colors ${theme === "light" ? "text-yellow-400" : "text-gray-400"}`}
@@ -97,68 +103,76 @@ export default function Header({
             className={`transition-colors ${theme === "dark" ? "text-blue-400" : "text-gray-400"}`}
           />
         </label>
-        {location == "/" && (
+        {location == "/" && !isAuth && (
           <div className="flex gap-4">
             <button className="btn btn-primary" onClick={handleLogin}>
-              Вход
+             Вход
             </button>
           </div>
         )}
-        <div className="relative">
-          <button
-            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="btn btn-ghost flex items-center space-x-2"
-          >
-            <div className="avatar">
-              <div className="ring-primary ring-offset-base-100 w-5 rounded-full ring-2 ring-offset-2">
-                {avatar ? (
-                  <img src={avatar} />
-                ) : (
-                  <div className="flex items-center justify-center">
-                    <div>
-                      <span>{username[0]}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            <span className="badge badge-primary">Pro</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
-          {isUserMenuOpen && (
-            <div className="absolute top-full right-0 mt-2 w-48 bg-base-200 rounded-lg shadow-lg">
-              <ul
-                className="menu bg-base-200 p-2"
-                onClick={() => setIsUserMenuOpen(false)}
+        {location === "/courses" ||
+          (isAuth  && (
+            <div className="relative" >
+              <button
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="btn btn-ghost"
               >
-                <li>
-                  <Link
-                    to="/profile"
-                    className="text-base-content hover:bg-base-300"
+                <div className="avatar">
+                  <div className="ring-primary w-5 rounded-full ring-2 ring-offset-2">
+                    {avatar ? (
+                      <img src={avatar} />
+                    ) : (
+                      <div className="flex items-center justify-center">
+                        <div>
+                          <span>{username[0]}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <span className="badge badge-primary">Pro</span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+              {isUserMenuOpen && (
+                <div className="absolute rounded-sm shadow-lg bg-base-200">
+                  <ul
+                    className="menu menu-compact"
+                    onClick={() => setIsUserMenuOpen(false)}
                   >
-                    Профиль
-                  </Link>
-                </li>
-                <li>
-                  <a className="text-base-content hover:bg-base-300">Выход</a>
-                </li>
-              </ul>
+                    <li>
+                      <Link
+                        to="/profile"
+                        className="text-base-content hover:bg-base-300"
+                      >
+                        Профиль
+                      </Link>
+                    </li>
+                    <li>
+                      <a
+                        className="text-base-content hover:bg-base-300"
+                        onClick={handleLogin}
+                      >
+                        Выход
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          ))}
       </div>
     </header>
   );

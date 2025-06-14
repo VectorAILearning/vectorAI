@@ -48,16 +48,16 @@ const CourseLayout = () => {
   }, [dispatch, courseId, lessonId, navigate]);
 
   return (
-    <div className="relative h-screen overflow-hidden">
+    <>
       <Header showCourseSelector={true} showSidebarToggle={true} />
-      <div className="flex h-full">
+      <div className="flex h-screen overflow-hidden pt-16">
         <CourseSidebar />
         <main className="flex w-full text-base-content overflow-y-auto justify-center">
           <Outlet />
         </main>
+        <ChatButton />
       </div>
-      <ChatButton />
-    </div>
+    </>
   );
 };
 

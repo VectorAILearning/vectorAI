@@ -54,8 +54,11 @@ export default function CodeContent({ codeContent }: CodeContentProps) {
             fontSize: 14,
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
-            wordWrap: "on",
-            lineNumbers: "on"
+            lineNumbers: "off",
+            scrollbar: {
+              vertical: "hidden",
+              handleMouseWheel: false
+            },
           }}
           height={height}
         />
