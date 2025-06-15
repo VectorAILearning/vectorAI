@@ -67,4 +67,4 @@ def require_roles(required_roles: List[UserRole]):
 
 
 is_admin = Depends(require_roles([UserRole.ADMIN]))
-is_user = Depends(require_roles([UserRole.USER]))
+is_user = Depends(require_roles([UserRole.USER, UserRole.ADMIN]))
