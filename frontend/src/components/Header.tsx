@@ -6,7 +6,7 @@ import { FaMoon, FaSun } from "react-icons/fa";
 import { useSelector } from "react-redux";
 import { toggleSidebar } from "../store/uiSlice.ts";
 import { setSelectedCourse } from "../store/userCoursesSlice.ts";
-import { FiMenu } from "react-icons/fi";
+import { FiMenu, FiBookOpen, FiUser, FiLogOut } from "react-icons/fi";
 import { logOut } from "../store/authSlice.ts";
 
 interface HeaderProps {
@@ -149,25 +149,33 @@ export default function Header({
                 </svg>
               </button>
               {isUserMenuOpen && (
-                <div className="absolute rounded-sm shadow-lg bg-base-200">
+                <div className="absolute rounded-sm shadow-lg bg-base-200 w-full flex justify-end">
                   <ul
-                    className="menu menu-compact"
+                    className="menu menu-horizontal"
                     onClick={() => setIsUserMenuOpen(false)}
                   >
                     <li>
                       <Link
-                        to="/profile"
-                        className="text-base-content hover:bg-base-300"
+                        to="/course"
+                        className="text-base-content hover:bg-base-300 flex items-center gap-2"
                       >
-                        Профиль
+                        <FiBookOpen className="w-4 h-4" /> Мои курсы
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/profile"
+                        className="text-base-content hover:bg-base-300 flex items-center gap-2"
+                      >
+                        <FiUser className="w-4 h-4" /> Профиль
                       </Link>
                     </li>
                     <li>
                       <a
-                        className="text-base-content hover:bg-base-300"
+                        className="text-base-content hover:bg-base-300 flex items-center gap-2"
                         onClick={handleLogout}
                       >
-                        Выход
+                        <FiLogOut className="w-4 h-4" /> Выход
                       </a>
                     </li>
                   </ul>
