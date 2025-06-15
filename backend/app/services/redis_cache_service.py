@@ -35,7 +35,7 @@ class RedisCacheService:
         await self._conn()
         await self._r.set(
             SESSION.format(sid=sid),
-            json.dumps({"created_at": datetime.now().isoformat()}),
+            json.dumps({"user_id": "", "created_at": datetime.now().isoformat()}),
             ex=settings.SESSION_TTL,
             nx=True,
         )
@@ -57,7 +57,7 @@ class RedisCacheService:
         await self._conn()
         await self._r.delete(CHAT.format(sid=sid))
 
-    async def get_session_by_id(self, sid: str):
+    async def get_session_by_id(self, sid: str) -> dict | None:
         await self._conn()
         return await self._r.get(SESSION.format(sid=sid))
 
@@ -126,3 +126,13 @@ class RedisCacheService:
         await self._conn()
         raw_list = await self._r.lrange(GENERATED_COURSES.format(sid=sid), 0, -1)
         return [json.loads(x) for x in raw_list]
+
+    async def attach_user(self, sid: str, user_id: str):
+        await self._conn()
+        key = SESSION.format(sid=sid)
+        raw = await self._r.get(key)
+        if not raw:
+            raise ValueError("session not found")
+        payload = json.loads(raw)
+        payload["user_id"] = user_id
+        await self._r.set(key, json.dumps(payload), ex=settings.SESSION_TTL)

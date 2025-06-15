@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePersistentWebSocket } from "../hooks/usePersistentWebSocket";
 import axiosInstance from "../api/axiosInstance.ts";
+import { useAppSelector } from "../store/index.ts";
 
 type Message = {
   id?: string;
@@ -15,14 +16,13 @@ export default function HomePage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [resetCount, setResetCount] = useState(0);
   const [status, setStatus] = useState<string>("chating");
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [wsTimestamp, setWsTimestamp] = useState(Date.now());
   const [botOptions, setBotOptions] = useState<string[] | null>(null);
   const navigate = useNavigate();
   const chatRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const seenRef = useRef<Set<string>>(new Set());
+  const token = useAppSelector((state) => state.auth.token);
 
   const addIfNew = useCallback((msg: Message) => {
     setMessages((prev) => {
@@ -38,12 +38,12 @@ export default function HomePage() {
     });
   }, []);
 
-  const readyToConnect = !!sessionId && isSessionReady;
+  const readyToConnect = isSessionReady;
   const wsHost = import.meta.env.VITE_WS_HOST;
   const wsUrl =
-    readyToConnect && sessionId
-      ? `${wsHost}/ws/audit?session_id=${encodeURIComponent(sessionId)}&t=${wsTimestamp}`
-      : "";
+    readyToConnect && token
+      ? `${wsHost}/ws/audit?token=${encodeURIComponent(token)}`
+      : `${wsHost}/ws/audit`;
 
   const handleWsMessage = useCallback(
     (event: MessageEvent, ws: WebSocket) => {
@@ -94,10 +94,7 @@ export default function HomePage() {
     setMessages(Array.isArray(data.messages) ? data.messages : []);
     setResetCount(typeof data.reset_count === "number" ? data.reset_count : 0);
     setStatus(typeof data.status === "string" ? data.status : "chating");
-    if (typeof data.session_id === "string") {
-      setSessionId(data.session_id);
-      setIsSessionReady(true);
-    }
+    setIsSessionReady(true);
     if (Array.isArray(data.messages)) {
       const last = data.messages.at(-1);
       if (last && last.who === "bot" && last.type === "chat") {
@@ -124,7 +121,6 @@ export default function HomePage() {
     setInput("");
     setStatus("chating");
     setIsSessionReady(false);
-    setSessionId(null);
     setTimeout(() => {
       setIsSessionReady(true);
       setWsTimestamp(Date.now());
@@ -163,10 +159,9 @@ export default function HomePage() {
 
   const handleReset = async () => {
     try {
-      const res = await axiosInstance.post("/audit/reset-chat", {}, { withCredentials: true });
+      const res = await axiosInstance.post("/audit/reset-chat", {});
       const data = res.data;
       setIsSessionReady(false);
-      setSessionId(null);
       setInput("");
       setTimeout(() => {
         updateSessionState(data);
@@ -239,9 +234,7 @@ export default function HomePage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await axiosInstance.get("/audit/session-info", {
-          withCredentials: true,
-        });
+        const res = await axiosInstance.get("/audit/session-info");
         const data = res.data;
         updateSessionState(data);
       } catch {}

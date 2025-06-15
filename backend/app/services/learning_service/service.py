@@ -1,4 +1,3 @@
-import json
 import logging
 import uuid
 
@@ -10,11 +9,8 @@ from pydantic import ValidationError
 from schemas import CourseUpdate, PreferenceUpdate
 from schemas.course import (
     ContentOut,
-    CourseOut,
-    CourseStructureOut,
     CourseStructureWithModulesOut,
     LessonStructureOut,
-    ModuleStructureOut,
     ModuleStructureWithLessonsOut,
 )
 from utils.uow import UnitOfWork
@@ -90,22 +86,29 @@ class LearningService:
             lesson_list.append(lesson)
         return lesson_list
 
-    async def initiate_user_courses_by_session_id(
+    async def init_user_courses_by_session_id(
         self, user_id: uuid.UUID, session_id: uuid.UUID
     ):
         courses = await self.uow.learning_repo.get_courses_by_session_id(session_id)
         if not courses:
-            raise ValueError(f"Курс для сессии {session_id} не найден")
+            log.info(f"Курсы в рамках сессии {session_id} не были созданы")
+            return
 
         for course in courses:
-            if not course.preference:
-                raise ValueError(f"Курс {course.id} не имеет предпочтения")
-
             log.info(f"Обновление курса {course.id}")
+
+            if course.user_id != user_id:
+                log.info(f"Курс {course.id} не принадлежит пользователю {user_id}")
+                continue
+
             await self.uow.learning_repo.update_course(
                 data=CourseUpdate(user_id=user_id),
                 course_id=course.id,
             )
+           
+            if not course.preference:
+                log.info(f"Курс {course.id} не имеет предпочтения")
+                continue
             await self.uow.audit_repo.update_course_preference(
                 data=PreferenceUpdate(user_id=user_id),
                 preference_id=course.preference.id,

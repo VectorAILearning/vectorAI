@@ -3,7 +3,7 @@ import uuid
 from urllib.parse import urlencode
 
 from core.config import settings
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from models import UserModel
@@ -31,7 +31,10 @@ log = logging.getLogger(__name__)
 
 @auth_router.post("/login", response_model=Token)
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(), uow: UnitOfWork = Depends(get_uow)
+    request: Request,
+    response: Response,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    uow: UnitOfWork = Depends(get_uow),
 ):
     """
     Авторизация пользователя.
@@ -42,6 +45,23 @@ async def login(
         if not user:
             raise HTTPException(status_code=400, detail="Неверный email или пароль")
         access_token = service.create_access_token(data={"sub": user.email})
+
+        sid = request.cookies.get(settings.SESSION_COOKIE_KEY)
+
+        if not sid or not await SessionService(uow).check_session(sid):
+            session_info = await SessionService(uow).create_session()
+            response.set_cookie(
+                key=settings.SESSION_COOKIE_KEY,
+                value=session_info["session_id"],
+                httponly=True,
+                secure=settings.SECURE_COOKIES,
+                samesite="lax",
+                max_age=settings.SESSION_TTL,
+            )
+            sid = session_info["session_id"]
+        
+        await SessionService(uow).attach_user(sid, str(user.id))
+        await LearningService(uow).init_user_courses_by_session_id(user.id, uuid.UUID(sid))
         refresh_token = await service.create_refresh_token(user_id=user.id)
         if not refresh_token:
             raise HTTPException(
@@ -49,8 +69,10 @@ async def login(
             )
         return Token(refresh_token=refresh_token.token, access_token=access_token)
     except HTTPException as e:
+        log.exception(f"Error in login: {e}")
         raise e
     except Exception as e:
+        log.exception(f"Error in login: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка на стороне сервера",
@@ -69,14 +91,7 @@ async def register(
     """
     try:
         auth_service = AuthService(uow)
-        user = await auth_service.register_user(user_data.username, user_data.password)
-
-        sid = request.cookies.get(settings.SESSION_COOKIE_KEY)
-
-        if sid:
-            await LearningService(uow).initiate_user_courses_by_session_id(
-                user.id, uuid.UUID(sid)
-            )
+        await auth_service.register_user(user_data.username, user_data.password)
 
         return RegistrationResponse(
             result=f"На вашу почту {user_data.username} "

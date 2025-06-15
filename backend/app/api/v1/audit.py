@@ -1,5 +1,6 @@
 import logging
 
+from utils.auth_utils import decode_access_token
 from core.config import settings
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from schemas.session import SessionInfoResponse
@@ -37,6 +38,23 @@ async def get_session_info(
     uow: UnitOfWork = Depends(get_uow),
 ):
     sid = request.cookies.get(settings.SESSION_COOKIE_KEY)
+    user_id = None
+    access_token = request.headers.get("Authorization")
+
+    if access_token:
+        token_payload = decode_access_token(access_token.split(" ")[1])
+        if token_payload:
+            email = token_payload.get("sub")
+            if not email:
+                raise HTTPException(status_code=401, detail="Invalid token")
+            user = await uow.auth_repo.get_by_email(email)
+            if user:
+                user_id = str(user.id)
+            else:
+                raise HTTPException(status_code=401, detail="User not found")
+        else:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
     if not sid:
         info = await SessionService(uow).create_session()
         response.set_cookie(
@@ -47,6 +65,8 @@ async def get_session_info(
             samesite="lax",
             max_age=settings.SESSION_TTL,
         )
+        if user_id:
+            await SessionService(uow).attach_user(info["session_id"], user_id)
         return SessionInfoResponse(**info)
 
     info = await redis_service.get_session_info(sid)
@@ -60,5 +80,7 @@ async def get_session_info(
             samesite="lax",
             max_age=settings.SESSION_TTL,
         )
+        if user_id:
+            await SessionService(uow).attach_user(info["session_id"], user_id)
 
     return SessionInfoResponse(**info)

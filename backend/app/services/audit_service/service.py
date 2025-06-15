@@ -65,7 +65,7 @@ class AuditDialogService:
             msg = {"who": "user", "type": "chat", "text": raw}
         return msg
 
-    async def run_dialog(self, ws: WebSocket, sid: str):
+    async def run_dialog(self, ws: WebSocket, sid: str, user_id: str | None = None):
         msgs = await self._msgs(sid)
 
         while True:
@@ -111,6 +111,7 @@ class AuditDialogService:
             deep=GenerateDeepEnum.first_lesson_content.value,
             audit_history=history_full,
             session_id=sid,
+            user_id=user_id,
         )
         async with uow_context() as uow:
             await TaskService(uow).create_task(
@@ -121,6 +122,7 @@ class AuditDialogService:
                         "deep": GenerateDeepEnum.first_lesson_content.value,
                         "audit_history": history_full,
                     },
+                    user_id=uuid.UUID(user_id) if user_id else None,
                     session_id=uuid.UUID(sid) if sid else None,
                 )
             )

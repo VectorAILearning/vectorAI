@@ -1,4 +1,5 @@
 from typing import List
+import logging
 
 import jwt
 from core.config import settings
@@ -11,9 +12,9 @@ from starlette import status
 from utils.uow import UnitOfWork, get_uow
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="v1/auth/login")
+log = logging.getLogger(__name__)
 
-
-def decode_access_token(token: str):
+def decode_access_token(token: str) -> dict | None:
     import jwt
 
     try:
@@ -38,9 +39,11 @@ async def get_current_user(
             token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
         )
         email: str = payload.get("sub")
+        log.info(f"payload: {payload}")
         if not email:
             raise credentials_exception
-    except jwt.PyJWTError:
+    except jwt.PyJWTError as e:
+        log.exception(f"Error in get_current_user: {e}")
         raise credentials_exception
 
     service = AuthService(uow)

@@ -5,8 +5,9 @@ from contextlib import suppress
 
 from core.broadcast import broadcaster
 from core.config import settings
-from fastapi import APIRouter, Query, WebSocket
+from fastapi import APIRouter, HTTPException, Query, WebSocket
 from services import get_cache_service
+from utils.auth_utils import decode_access_token
 from utils.uow import uow_context
 
 router = APIRouter()
@@ -38,13 +39,33 @@ async def pipe_broadcast(ws: WebSocket, channel: str, sid: str):
 
 
 @router.websocket("/ws/audit")
-async def audit_websocket(ws: WebSocket):
+async def audit_websocket(ws: WebSocket, token: str = Query(None)):
     from services.audit_service.service import AuditDialogService
 
     cache_service = get_cache_service()
+    user_id = None
+    
+    async with uow_context() as uow:
+        if token:
+            token_payload = decode_access_token(token)
+            if token_payload:
+                email = token_payload.get("sub")
+                if not email:
+                    await ws.close(code=1008)
+                    return
+                
+                user = await uow.auth_repo.get_by_email(email)
+                if not user:
+                    await ws.close(code=1008)
+                    return
+                user_id = str(user.id)
+            else:
+                await ws.close(code=1008)
+                return
+        
     sid = ws.cookies.get("session_id")
     if not sid or not await cache_service.get_session_by_id(sid):
-        await ws.close(code=1008)  # Policy Violation
+        await ws.close(code=1008)
         return
 
     try:
@@ -64,7 +85,7 @@ async def audit_websocket(ws: WebSocket):
         if session_status not in ["course_generation_done", "course_generation_error"]:
             broadcast_task = asyncio.create_task(pipe_broadcast(ws, f"chat_{sid}", sid))
         if session_status == "chating":
-            await AuditDialogService().run_dialog(ws, sid)
+            await AuditDialogService().run_dialog(ws, sid, user_id)
         if broadcast_task:
             await broadcast_task
     except Exception as e:
