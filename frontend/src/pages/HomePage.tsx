@@ -163,7 +163,7 @@ export default function HomePage() {
 
   const handleReset = async () => {
     try {
-      const res = await axiosInstance.post("/audit/reset-chat");
+      const res = await axiosInstance.post("/audit/reset-chat", {}, { withCredentials: true });
       const data = res.data;
       setIsSessionReady(false);
       setSessionId(null);
