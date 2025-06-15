@@ -69,6 +69,14 @@ async def login(
             raise HTTPException(
                 status_code=500, detail="Не удалось создать refresh_token"
             )
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token.token,
+            httponly=True,
+            secure=settings.SECURE_COOKIES,
+            samesite="lax",
+            max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
+        )
         return Token(refresh_token=refresh_token.token, access_token=access_token)
     except HTTPException as e:
         log.exception(f"Error in login: {e}")
@@ -100,8 +108,10 @@ async def register(
             f"отправлено письмо для подтверждения учетной записи"
         )
     except HTTPException as e:
+        log.exception(f"Error in register: {e}")
         raise e
     except Exception as e:
+        log.exception(f"Error in register: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка на стороне сервера",
@@ -110,7 +120,9 @@ async def register(
 
 @auth_router.post("/refresh", response_model=Token)
 async def refresh_token(
-    token_request: RefreshTokenRequest, uow: UnitOfWork = Depends(get_uow)
+    response: Response,
+    token_request: RefreshTokenRequest,
+    uow: UnitOfWork = Depends(get_uow),
 ):
     """
     Обновление access_token с помощью refresh_token.
@@ -118,10 +130,20 @@ async def refresh_token(
     try:
         service = AuthService(uow)
         new_tokens = await service.refresh_access_token(token_request.refresh_token)
+        response.set_cookie(
+            key="refresh_token",
+            value=new_tokens.refresh_token,
+            httponly=True,
+            secure=settings.SECURE_COOKIES,
+            samesite="lax",
+            max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
+        )
         return new_tokens
     except HTTPException as e:
+        log.exception(f"Error in refresh: {e}")
         raise e
     except Exception as e:
+        log.exception(f"Error in refresh: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка сервера"
         )
@@ -141,8 +163,10 @@ async def forgot_password(
             result=f"На вашу почту {request_password.username} отправлено письмо для сброса пароля."
         )
     except HTTPException as e:
+        log.exception(f"Error in forgot_password: {e}")
         raise e
     except Exception as e:
+        log.exception(f"Error in forgot_password: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка на стороне сервера",
@@ -161,8 +185,10 @@ async def reset_password(
         await auth_service.reset_password(request.token, request.new_password)
         return RegistrationResponse(result="Пароль успешно обновлен!")
     except HTTPException as e:
+        log.exception(f"Error in reset_password: {e}")
         raise e
     except Exception as e:
+        log.exception(f"Error in reset_password: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка сервера"
         )
@@ -186,8 +212,10 @@ async def auth_via_google(code: GoogleLoginRequest, uow: UnitOfWork = Depends(ge
         refresh_token = await service.create_refresh_token(user_id=user.id)
         return Token(refresh_token=refresh_token.token, access_token=access_token)
     except HTTPException as e:
+        log.exception(f"Error in auth_via_google: {e}")
         raise e
     except Exception as e:
+        log.exception(f"Error in auth_via_google: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка на стороне сервера при аутентификации через Google",
@@ -212,8 +240,10 @@ async def verify_email(token: str, uow: UnitOfWork = Depends(get_uow)):
         await auth_service.verify_user_email(token)
         return RegistrationResponse(result="Email успешно подтвержден!")
     except HTTPException as e:
+        log.exception(f"Error in verify_email: {e}")
         raise e
     except Exception as e:
+        log.exception(f"Error in verify_email: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка сервера"
         )
