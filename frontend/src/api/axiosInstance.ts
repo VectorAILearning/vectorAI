@@ -3,8 +3,10 @@ import { store } from "../store";
 import { logOut, updateToken } from "../store/authSlice.ts";
 import type { IToken } from "../types/token.ts";
 
+const apiHost = import.meta.env.VITE_API_HOST;
+
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_HOST + "/api/v1",
+  baseURL: `${apiHost}/api/v1`,
   headers: {
     "Content-Type": "application/json",
   },
@@ -34,7 +36,7 @@ axiosInstance.interceptors.response.use(
       }
       try {
         const { data } = await axios.post<IToken>(
-          "http://localhost:8000/api/v1/auth/refresh",
+          `${apiHost}/api/v1/auth/refresh`,
           { refresh_token: refreshToken },
         );
         store.dispatch(updateToken(data));
