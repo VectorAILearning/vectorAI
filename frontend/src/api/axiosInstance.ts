@@ -5,111 +5,111 @@ import { logOut, updateToken } from "../store/authSlice.ts";
 import type { IToken } from "../types/token.ts";
 
 interface TokenPayload {
-    exp: number;
-    [key: string]: any;
+  exp: number;
+  [key: string]: any;
 }
 
 const apiHost = import.meta.env.VITE_API_HOST;
 
 const axiosInstance = axios.create({
-    baseURL: `${apiHost}/api/v1`,
-    headers: {
-        "Content-Type": "application/json",
-    },
-    withCredentials: true,
+  baseURL: `${apiHost}/api/v1`,
+  headers: {
+    "Content-Type": "application/json",
+  },
+  withCredentials: true,
 });
 
 let isRefreshing = false;
 let failedQueue: any[] = [];
 
 const processQueue = (error: any, token: string | null = null) => {
-    failedQueue.forEach((prom) => {
-        if (token) prom.resolve(token);
-        else prom.reject(error);
-    });
-    failedQueue = [];
+  failedQueue.forEach((prom) => {
+    if (token) prom.resolve(token);
+    else prom.reject(error);
+  });
+  failedQueue = [];
 };
 
 axiosInstance.interceptors.request.use(async (config) => {
-    let token = localStorage.getItem("token");
+  let token = localStorage.getItem("token");
 
-    if (token && config.headers) {
-        const decoded = jwtDecode<TokenPayload>(token);
-        const expiresAt = decoded.exp * 1000;
-        const now = Date.now();
-        const buffer = 60 * 1000;
+  if (token && config.headers) {
+    const decoded = jwtDecode<TokenPayload>(token);
+    const expiresAt = decoded.exp * 1000;
+    const now = Date.now();
+    const buffer = 60 * 1000;
 
-        if (expiresAt - now < buffer && !isRefreshing) {
-            isRefreshing = true;
-            try {
-                const refreshToken = localStorage.getItem("refreshToken");
-                const { data } = await axios.post<IToken>(
-                    `${apiHost}/api/v1/auth/refresh`,
-                    { refresh_token: refreshToken },
-                );
-                localStorage.setItem("token", data.access_token);
-                localStorage.setItem("refreshToken", data.refresh_token);
-                store.dispatch(updateToken(data));
-                processQueue(null, data.access_token);
-                token = data.access_token;
-            } catch (err) {
-                processQueue(err, null);
-                store.dispatch(logOut());
-                throw err;
-            } finally {
-                isRefreshing = false;
-            }
-        } else if (isRefreshing) {
-            return new Promise((resolve, reject) => {
-                failedQueue.push({
-                    resolve: (token: string) => {
-                        config.headers!.Authorization = `Bearer ${token}`;
-                        resolve(config);
-                    },
-                    reject: (err: any) => reject(err),
-                });
-            });
-        }
-
-        config.headers.Authorization = `Bearer ${token}`;
+    if (expiresAt - now < buffer && !isRefreshing) {
+      isRefreshing = true;
+      try {
+        const refreshToken = localStorage.getItem("refreshToken");
+        const { data } = await axios.post<IToken>(
+          `${apiHost}/api/v1/auth/refresh`,
+          { refresh_token: refreshToken },
+        );
+        localStorage.setItem("token", data.access_token);
+        localStorage.setItem("refreshToken", data.refresh_token);
+        store.dispatch(updateToken(data));
+        processQueue(null, data.access_token);
+        token = data.access_token;
+      } catch (err) {
+        processQueue(err, null);
+        store.dispatch(logOut());
+        throw err;
+      } finally {
+        isRefreshing = false;
+      }
+    } else if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({
+          resolve: (token: string) => {
+            config.headers!.Authorization = `Bearer ${token}`;
+            resolve(config);
+          },
+          reject: (err: any) => reject(err),
+        });
+      });
     }
 
-    return config;
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
 });
 
 axiosInstance.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        const originalRequest = error.config;
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
-            originalRequest._retry = true;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
 
-            const refreshToken = localStorage.getItem("refreshToken");
-            if (!refreshToken) {
-                store.dispatch(logOut());
-                return Promise.reject(error);
-            }
-
-            try {
-                const { data } = await axios.post<IToken>(
-                    `${apiHost}/api/v1/auth/refresh`,
-                    { refresh_token: refreshToken },
-                );
-                localStorage.setItem("token", data.access_token);
-                localStorage.setItem("refreshToken", data.refresh_token);
-                store.dispatch(updateToken(data));
-
-                originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
-                return axiosInstance(originalRequest);
-            } catch (err) {
-                store.dispatch(logOut());
-                return Promise.reject(err);
-            }
-        }
-
+      const refreshToken = localStorage.getItem("refreshToken");
+      if (!refreshToken) {
+        store.dispatch(logOut());
         return Promise.reject(error);
-    },
+      }
+
+      try {
+        const { data } = await axios.post<IToken>(
+          `${apiHost}/api/v1/auth/refresh`,
+          { refresh_token: refreshToken },
+        );
+        localStorage.setItem("token", data.access_token);
+        localStorage.setItem("refreshToken", data.refresh_token);
+        store.dispatch(updateToken(data));
+
+        originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
+        return axiosInstance(originalRequest);
+      } catch (err) {
+        store.dispatch(logOut());
+        return Promise.reject(err);
+      }
+    }
+
+    return Promise.reject(error);
+  },
 );
 
 export default axiosInstance;

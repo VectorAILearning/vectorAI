@@ -59,9 +59,11 @@ async def login(
                 max_age=settings.SESSION_TTL,
             )
             sid = session_info["session_id"]
-        
+
         await SessionService(uow).attach_user(sid, str(user.id))
-        await LearningService(uow).init_user_courses_by_session_id(user.id, uuid.UUID(sid))
+        await LearningService(uow).init_user_courses_by_session_id(
+            user.id, uuid.UUID(sid)
+        )
         refresh_token = await service.create_refresh_token(user_id=user.id)
         if not refresh_token:
             raise HTTPException(

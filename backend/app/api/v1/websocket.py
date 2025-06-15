@@ -44,7 +44,7 @@ async def audit_websocket(ws: WebSocket, token: str = Query(None)):
 
     cache_service = get_cache_service()
     user_id = None
-    
+
     async with uow_context() as uow:
         if token:
             token_payload = decode_access_token(token)
@@ -53,7 +53,7 @@ async def audit_websocket(ws: WebSocket, token: str = Query(None)):
                 if not email:
                     await ws.close(code=1008)
                     return
-                
+
                 user = await uow.auth_repo.get_by_email(email)
                 if not user:
                     await ws.close(code=1008)
@@ -62,7 +62,7 @@ async def audit_websocket(ws: WebSocket, token: str = Query(None)):
             else:
                 await ws.close(code=1008)
                 return
-        
+
     sid = ws.cookies.get("session_id")
     if not sid or not await cache_service.get_session_by_id(sid):
         await ws.close(code=1008)

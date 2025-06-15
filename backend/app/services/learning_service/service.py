@@ -105,7 +105,7 @@ class LearningService:
                 data=CourseUpdate(user_id=user_id),
                 course_id=course.id,
             )
-           
+
             if not course.preference:
                 log.info(f"Курс {course.id} не имеет предпочтения")
                 continue

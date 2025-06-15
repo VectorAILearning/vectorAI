@@ -1,5 +1,5 @@
-from typing import List
 import logging
+from typing import List
 
 import jwt
 from core.config import settings
@@ -13,6 +13,7 @@ from utils.uow import UnitOfWork, get_uow
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="v1/auth/login")
 log = logging.getLogger(__name__)
+
 
 def decode_access_token(token: str) -> dict | None:
     import jwt

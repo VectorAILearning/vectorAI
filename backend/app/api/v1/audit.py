@@ -1,11 +1,11 @@
 import logging
 
-from utils.auth_utils import decode_access_token
 from core.config import settings
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from schemas.session import SessionInfoResponse
 from services import RedisCacheService, get_cache_service
 from services.session_service.service import SessionService
+from utils.auth_utils import decode_access_token
 from utils.uow import UnitOfWork, get_uow
 
 audit_router = APIRouter(prefix="/audit", tags=["audit"])
