@@ -62,10 +62,10 @@ class AuthService:
             )
         return user
 
-    async def register_user(self, email: EmailStr, password: str) -> UserModel | None:
+    async def register_user(self, email: EmailStr, password: str) -> UserModel:
         existing_user = await self.uow.auth_repo.get_by_email(email)
         if existing_user:
-            return None
+            raise HTTPException(status_code=400, detail="Пользователь уже существует")
         hashed_password = self.get_password_hash(password)
         username = email.split("@")[0]
         user = UserModel(email=email, password=hashed_password, username=username)

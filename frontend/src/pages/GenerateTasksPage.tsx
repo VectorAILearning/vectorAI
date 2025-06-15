@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import React from "react";
 import CopyButton from "../components/CopyButton";
 import { HiChevronDown, HiChevronRight } from "react-icons/hi";
+import axiosInstance from "../api/axiosInstance.ts";
 
 export type TaskOut = {
   id: string;
@@ -262,11 +263,8 @@ export default function GenerateTasksPage() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       setError(null);
       try {
-        const apiHost = import.meta.env.VITE_API_HOST;
-        const res = await fetch(`${apiHost}/api/v1/tasks/`);
-        if (!res.ok) throw new Error("Ошибка загрузки тасков");
-        const data = await res.json();
-        setTasks(data);
+        const res = await axiosInstance.get("/tasks/");
+        setTasks(res.data);
       } catch (e: any) {
         setError(e.message || "Неизвестная ошибка");
       } finally {

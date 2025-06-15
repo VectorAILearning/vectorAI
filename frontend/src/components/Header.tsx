@@ -28,11 +28,10 @@ export default function Header({
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogout = () => {
     if (isAuth) {
       dispatch(logOut());
     }
-    navigate("/auth");
   };
 
   const courses = showCourseSelector
@@ -105,14 +104,17 @@ export default function Header({
         </label>
         {location == "/" && !isAuth && (
           <div className="flex gap-4">
-            <button className="btn btn-primary" onClick={handleLogin}>
-             Вход
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate("/auth")}
+            >
+              Вход
             </button>
           </div>
         )}
         {location === "/courses" ||
-          (isAuth  && (
-            <div className="relative" >
+          (isAuth && (
+            <div className="relative">
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="btn btn-ghost"
@@ -163,7 +165,7 @@ export default function Header({
                     <li>
                       <a
                         className="text-base-content hover:bg-base-300"
-                        onClick={handleLogin}
+                        onClick={handleLogout}
                       >
                         Выход
                       </a>

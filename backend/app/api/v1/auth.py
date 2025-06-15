@@ -1,3 +1,4 @@
+import logging
 import uuid
 from urllib.parse import urlencode
 
@@ -23,6 +24,9 @@ from utils.auth_utils import is_user
 from utils.uow import UnitOfWork, get_uow
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+log = logging.getLogger(__name__)
 
 
 @auth_router.post("/login", response_model=Token)
@@ -61,19 +65,16 @@ async def register(
 ):
     """
     Регистрация пользователя. На указанную почту отправляется письмо для подтверждения.
+    Курсы пользователя созданные в сессии подвязываются к его аккаунту.
     """
     try:
         auth_service = AuthService(uow)
         user = await auth_service.register_user(user_data.username, user_data.password)
 
-        if not user:
-            raise HTTPException(status_code=400, detail="Пользователь уже существует")
+        sid = request.cookies.get(settings.SESSION_COOKIE_KEY)
 
-        ip = request.client.host if request.client else "unknown"
-        device = request.headers.get("user-agent", "unknown")
-        sid = await SessionService(uow).get_session_id_by_ip_user_agent(ip, device)
         if sid:
-            await LearningService(uow).initiate_user_learning_by_session_id(
+            await LearningService(uow).initiate_user_courses_by_session_id(
                 user.id, uuid.UUID(sid)
             )
 

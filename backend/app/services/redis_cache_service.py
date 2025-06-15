@@ -2,6 +2,7 @@ import json
 import logging
 import time
 import uuid
+from datetime import datetime
 
 import redis.asyncio as aioredis
 from core.config import settings
@@ -30,14 +31,15 @@ class RedisCacheService:
             await self._r.close()
             self._r = None
 
-    async def create_session(self, sid: str, ip: str, dev: str):
+    async def create_session(self, sid: str) -> dict:
         await self._conn()
         await self._r.set(
             SESSION.format(sid=sid),
-            json.dumps({"ip": ip, "device": dev}),
-            ex=settings.REDIS_SESSION_TTL,
+            json.dumps({"created_at": datetime.now().isoformat()}),
+            ex=settings.SESSION_TTL,
             nx=True,
         )
+        return await self.get_session_info(sid)
 
     async def get_messages(self, sid: str):
         await self._conn()
@@ -55,13 +57,9 @@ class RedisCacheService:
         await self._conn()
         await self._r.delete(CHAT.format(sid=sid))
 
-    async def get_session_id_by_ip_device(self, ip: str, dev: str):
+    async def get_session_by_id(self, sid: str):
         await self._conn()
-        return await self._r.get(f"session_map:{ip}:{dev}")
-
-    async def set_session_id_for_ip_device(self, ip: str, dev: str, sid: str):
-        await self._conn()
-        await self._r.set(f"session_map:{ip}:{dev}", sid, ex=settings.REDIS_SESSION_TTL)
+        return await self._r.get(SESSION.format(sid=sid))
 
     async def get_reset_count(self, sid: str) -> int:
         await self._conn()
@@ -77,27 +75,28 @@ class RedisCacheService:
         await self._conn()
         key = RESET.format(sid=sid)
         n = await self._r.incr(key)
-        await self._r.expire(key, settings.REDIS_SESSION_TTL)
+        await self._r.expire(key, settings.SESSION_TTL)
         return n
 
-    async def get_session_info(self, sid: str):
+    async def get_session_info(self, sid: str) -> dict | None:
         await self._conn()
         raw = await self._r.get(SESSION.format(sid=sid))
-        generated_courses = await self.get_generated_courses(sid)
+
+        if not raw:
+            return None
+
         return {
             "session_id": sid,
-            "session": json.loads(raw) if raw else {},
+            "session": json.loads(raw),
             "reset_count": await self.get_reset_count(sid),
             "messages": await self.get_messages(sid),
             "status": await self.get_session_status(sid),
-            "generated_courses": generated_courses,
+            "generated_courses": await self.get_generated_courses(sid),
         }
 
     async def set_course_generation_in_progress(self, sid: str):
         await self._conn()
-        await self._r.set(
-            COURSE_GEN.format(sid=sid), "1", ex=settings.REDIS_SESSION_TTL
-        )
+        await self._r.set(COURSE_GEN.format(sid=sid), "1", ex=settings.SESSION_TTL)
 
     async def is_course_generation_in_progress(self, sid: str) -> bool:
         await self._conn()
@@ -110,7 +109,7 @@ class RedisCacheService:
     async def set_session_status(self, sid: str, status: str):
         await self._conn()
         await self._r.set(
-            SESSION_STATUS.format(sid=sid), status, ex=settings.REDIS_SESSION_TTL
+            SESSION_STATUS.format(sid=sid), status, ex=settings.SESSION_TTL
         )
 
     async def get_session_status(self, sid: str) -> str:
@@ -121,9 +120,7 @@ class RedisCacheService:
     async def add_generated_course(self, sid: str, course_data: dict):
         await self._conn()
         await self._r.lpush(GENERATED_COURSES.format(sid=sid), json.dumps(course_data))
-        await self._r.expire(
-            GENERATED_COURSES.format(sid=sid), settings.REDIS_SESSION_TTL
-        )
+        await self._r.expire(GENERATED_COURSES.format(sid=sid), settings.SESSION_TTL)
 
     async def get_generated_courses(self, sid: str) -> list[dict]:
         await self._conn()

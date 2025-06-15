@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { FiRefreshCw } from "react-icons/fi";
 import Tippy from "@tippyjs/react";
 import { useSelector } from "react-redux";
+import axiosInstance from "../api/axiosInstance";
 
 const CourseSidebar = () => {
   const selectedCourse = useSelector(
@@ -10,13 +11,7 @@ const CourseSidebar = () => {
   const isSidebarOpen = useSelector((state: any) => state.ui.isSidebarOpen);
 
   function handleRegenerateLesson(lessonId: string) {
-    const apiHost = import.meta.env.VITE_API_HOST;
-    fetch(`${apiHost}/api/v1/lesson/${lessonId}/generate-content?force=true`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    axiosInstance.post(`/lesson/${lessonId}/generate-content?force=true`);
     alert("Урок в процессе перегенерации! Не нажимайте на кнопку снова!");
   }
 

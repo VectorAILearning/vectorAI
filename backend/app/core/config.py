@@ -7,6 +7,9 @@ from sqlalchemy import URL
 
 class Settings(BaseSettings):
     CHECK_SUBSCRIPTION: bool = True
+    SESSION_TTL: int = 2592000  # 30 дней по умолчанию
+    SESSION_COOKIE_KEY: str = "session_id"
+    SECURE_COOKIES: bool = False
 
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
@@ -20,7 +23,6 @@ class Settings(BaseSettings):
     REDIS_DB: int = 0
     REDIS_PASSWORD: str = ""
     REDIS_URL: Optional[str] = None
-    REDIS_SESSION_TTL: int = 2592000  # 30 дней по умолчанию
 
     JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
@@ -35,7 +37,7 @@ class Settings(BaseSettings):
     MAIL_STARTTLS: bool
     MAIL_SSL_TLS: bool
 
-    DOMAIN: str = "http://127.0.0.1:8000"
+    DOMAIN: str = "http://localhost:5173"
     EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES: int = 60
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
 

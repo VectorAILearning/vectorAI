@@ -23,33 +23,42 @@ export default function App() {
         <Route path="/" element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route
-              path="/auth"
-              element={
-                <PublicRoute>
-                  <AuthPage />
-                </PublicRoute>
-              }
+            path="/auth"
+            element={
+              <PublicRoute>
+                <AuthPage />
+              </PublicRoute>
+            }
           />
           <Route path="/auth/recover" element={<ForgetPasswordPage />} />
           <Route path="/auth/changepass" element={<ChangePasswordPage />} />
           <Route path="/auth/register" element={<RegisterPage />} />
           <Route
-              path="/profile"
-              element={
-                <PrivateRoute>
-                  <UserProfilePage />
-                </PrivateRoute>
-              }
+            path="/profile"
+            element={
+              <PrivateRoute>
+                <UserProfilePage />
+              </PrivateRoute>
+            }
           />
           <Route path="/generate_tasks" element={<GenerateTasksPage />} />
         </Route>
-        <Route path="/course" element={<CourseLayout />}>
+        {/* CourseLayout */}
+        <Route
+          path="/course"
+          element={
+            <PrivateRoute>
+              <CourseLayout />
+            </PrivateRoute>
+          }
+        >
           <Route path="" element={<CourseRedirectPage />} />
           <Route path=":courseId" element={<CoursesPage />} />
           <Route path=":courseId/lesson/:lessonId" element={<LessonsPage />} />
         </Route>
-          <Route path="/check_email" element={<CheckEmailPage />} />
-          <Route path="/verify_email" element={<VerifyEmailPage />} />
+
+        <Route path="/check_email" element={<CheckEmailPage />} />
+        <Route path="/verify_email" element={<VerifyEmailPage />} />
       </Routes>
     </BrowserRouter>
   );

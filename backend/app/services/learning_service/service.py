@@ -90,7 +90,7 @@ class LearningService:
             lesson_list.append(lesson)
         return lesson_list
 
-    async def initiate_user_learning_by_session_id(
+    async def initiate_user_courses_by_session_id(
         self, user_id: uuid.UUID, session_id: uuid.UUID
     ):
         courses = await self.uow.learning_repo.get_courses_by_session_id(session_id)
@@ -101,6 +101,7 @@ class LearningService:
             if not course.preference:
                 raise ValueError(f"Курс {course.id} не имеет предпочтения")
 
+            log.info(f"Обновление курса {course.id}")
             await self.uow.learning_repo.update_course(
                 data=CourseUpdate(user_id=user_id),
                 course_id=course.id,

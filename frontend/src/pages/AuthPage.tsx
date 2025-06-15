@@ -20,7 +20,7 @@ export default function AuthPage() {
     );
 
     if (loginUser.fulfilled.match(result)) {
-      navigate("/");
+      navigate("/course");
     }
   };
 

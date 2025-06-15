@@ -4,7 +4,7 @@ import uuid
 from fastapi import HTTPException
 from models import CourseModel, LessonModel, ModuleModel
 from models.content import ContentModel
-from schemas import CourseIn, CourseUpdate
+from schemas import CourseIn, CourseOut, CourseUpdate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
@@ -33,12 +33,18 @@ class LearningRepository:
 
         await self.db.commit()
         await self.db.refresh(course)
+        log.info(f"course update, {CourseOut.model_validate(course).model_dump_json()}")
         return course
 
     async def get_courses_by_session_id(
         self, session_id: uuid.UUID | str
     ) -> list[CourseModel]:
         stmt = select(CourseModel).where(CourseModel.session_id == session_id)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_courses_by_user_id(self, user_id: uuid.UUID) -> list[CourseModel]:
+        stmt = select(CourseModel).where(CourseModel.user_id == user_id)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 

@@ -9,16 +9,17 @@ import {
   setSelectedCourse,
   setSelectedLesson,
 } from "../store/userCoursesSlice";
+import axiosInstance from "../api/axiosInstance.ts";
 
 const CourseLayout = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { courseId, lessonId } = useParams();
   useEffect(() => {
-    const apiHost = import.meta.env.VITE_API_HOST;
-    fetch(`${apiHost}/api/v1/user-courses`)
-      .then((res) => res.json())
-      .then((data) => {
+    axiosInstance
+      .get("/user-courses")
+      .then((res) => {
+        const data = res.data;
         dispatch(setCourses(data));
         if (data.length === 0) {
           navigate(`/`, { replace: true });

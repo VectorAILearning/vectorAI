@@ -6,9 +6,9 @@ from api.v1.router import api_v1_router
 from api.v1.websocket import router as websocket_router
 from core.arq import get_arq_pool
 from core.broadcast import broadcaster
+from core.config import settings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.websockets import WebSocketState
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -36,9 +36,11 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
+ALLOW_ORIGINS = [settings.DOMAIN]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOW_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

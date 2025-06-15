@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { data, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { usePersistentWebSocket } from "../hooks/usePersistentWebSocket";
+import axiosInstance from "../api/axiosInstance.ts";
 
 type Message = {
   id?: string;
@@ -162,16 +163,8 @@ export default function HomePage() {
 
   const handleReset = async () => {
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_HOST}/api/v1/audit/reset-chat`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-      if (!res.ok) throw new Error("Ошибка сброса чата");
-      const data = await res.json();
-
+      const res = await axiosInstance.post("/audit/reset-chat");
+      const data = res.data;
       setIsSessionReady(false);
       setSessionId(null);
       setInput("");
@@ -246,11 +239,10 @@ export default function HomePage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(
-          `${import.meta.env.VITE_API_HOST}/api/v1/audit/session-info`,
-        );
-        if (!res.ok) return;
-        const data = await res.json();
+        const res = await axiosInstance.get("/audit/session-info", {
+          withCredentials: true,
+        });
+        const data = res.data;
         updateSessionState(data);
       } catch {}
     })();

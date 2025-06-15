@@ -43,6 +43,7 @@ export const registerUser = createAsyncThunk<
     const response = await axios.post<MessageResponse>(
       "/auth/register",
       payload,
+      { withCredentials: true },
     );
     return response.data;
   } catch (error) {

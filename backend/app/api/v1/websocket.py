@@ -38,30 +38,33 @@ async def pipe_broadcast(ws: WebSocket, channel: str, sid: str):
 
 
 @router.websocket("/ws/audit")
-async def audit_websocket(ws: WebSocket, session_id: str = Query(...)):
+async def audit_websocket(ws: WebSocket):
     from services.audit_service.service import AuditDialogService
 
-    await ws.accept()
+    cache_service = get_cache_service()
+    sid = ws.cookies.get("session_id")
+    if not sid or not await cache_service.get_session_by_id(sid):
+        await ws.close(code=1008)  # Policy Violation
+        return
 
     try:
         async with uow_context() as uow:
+            await ws.accept()
             # TODO: получать пользователя, если у пользователя нет подписки, или пользователь
             # не авторизован и при этом уже создал курс, то закрываем соединение
-            course_exist = await uow.learning_repo.get_courses_by_session_id(session_id)
+            course_exist = await uow.learning_repo.get_courses_by_session_id(sid)
             if settings.CHECK_SUBSCRIPTION and course_exist:
                 await ws.close(code=4001)
                 return
 
         cache_service = get_cache_service()
-        session_status = await cache_service.get_session_status(session_id)
+        session_status = await cache_service.get_session_status(sid)
         log.info(f"session_status: {session_status}")
         broadcast_task = None
         if session_status not in ["course_generation_done", "course_generation_error"]:
-            broadcast_task = asyncio.create_task(
-                pipe_broadcast(ws, f"chat_{session_id}", session_id)
-            )
+            broadcast_task = asyncio.create_task(pipe_broadcast(ws, f"chat_{sid}", sid))
         if session_status == "chating":
-            await AuditDialogService().run_dialog(ws, session_id)
+            await AuditDialogService().run_dialog(ws, sid)
         if broadcast_task:
             await broadcast_task
     except Exception as e:

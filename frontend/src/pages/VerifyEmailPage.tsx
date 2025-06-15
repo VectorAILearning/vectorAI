@@ -13,7 +13,6 @@ export default function VerifyEmailPage() {
 
   const navigate = useNavigate();
 
-
   useEffect(() => {
     if (token) {
       dispatch(verifyEmail(token));
@@ -33,8 +32,8 @@ export default function VerifyEmailPage() {
     }
   }, [message, error, navigate]);
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-6 rounded-lg shadow-lg text-center">
+    <div className="flex items-center justify-center min-h-screen bg-base-100">
+      <div className="bg-base-200 p-6 rounded-lg shadow-lg text-center">
         <h1>{message || error}</h1>
       </div>
     </div>

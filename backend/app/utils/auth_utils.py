@@ -38,14 +38,14 @@ async def get_current_user(
             token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
         )
         email: str = payload.get("sub")
-        if email is None:
+        if not email:
             raise credentials_exception
     except jwt.PyJWTError:
         raise credentials_exception
 
     service = AuthService(uow)
     user = await service.uow.auth_repo.get_by_email(email)
-    if user is None:
+    if not user:
         raise credentials_exception
     return UserBase.model_validate(user)
 

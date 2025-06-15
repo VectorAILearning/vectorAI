@@ -14,7 +14,7 @@ SYSTEM_PROMPT = """
 - practice {{ "task": "..." }}
 - reflection {{ "prompt": "..." }}
 - test {{ "question": "...", "options": ["...", "...", "..."], "answer": "..." }}
-- code {{ "language": "...", "source": "...", "executable": true, "explanation": "..." }}
+- code {{ "language": "...", "source": "...", "executable": false, "explanation": "..." }}
 
 Требования:
 1. Возвращай только корректный JSON-объект content для этого блока.
@@ -29,12 +29,18 @@ SYSTEM_PROMPT = """
 8. Обязательно учти поле outline текущего блока: раскрывай именно эти тезисы.
 9. В блоках code и в markdown-текстах: сам код (имена переменных, классов, функций, комментарии) всегда должен быть на английском языке, даже если объяснения и остальной текст — на русском.
 10. source в блоке code должен быть с переносами строк \n.
-11. Поле executable должно быть true, если для запуска кода требуется только интерпретатор, без дополнительных библиотек.
+11. В блоке code поле executable должно быть true только если код может быть выполнен на чистом интерпретаторе без установки сторонних библиотек.
+Если используется хотя бы один импорт внешней библиотеки (например, flask, pandas, numpy, requests, express, lodash, axios, и т.д.) — обязательно ставь "executable": false.
 
 Пример для type="text":
 {{ "text": "Здесь подробное объяснение темы..." }}
-Пример для type="video":
-{{ "title": "Название видео", "description": "Описание видео", "url": "https://youtube.com/watch?v=dQw4w9WgXcQ" }}
+Пример для type="code":
+{{
+  "language": "python",
+  "source": "from flask import Flask\napp = Flask(__name__)",
+  "executable": false,  # false, т.к. Flask не в stdlib
+  "explanation": "Пример простого Flask-сервера."
+}}
 
 """
 

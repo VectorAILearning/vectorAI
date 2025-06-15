@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { data, useNavigate } from "react-router-dom";
 import { usePersistentWebSocket } from "../hooks/usePersistentWebSocket";
+import axiosInstance from "../api/axiosInstance.ts";
 
 type Message = {
   id?: string;
@@ -24,13 +25,9 @@ export default function Chat() {
   const seenRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    const apiHost = import.meta.env.VITE_API_HOST;
-
-    fetch(`${apiHost}/api/v1/user-courses`)
-      .then((res) => res.json())
-      .then((data) => {
-        setCurses(data);
-      });
+    axiosInstance.get("/user-courses").then((res) => {
+      setCurses(res.data);
+    });
   }, [curses]);
 
   const addIfNew = useCallback((msg: Message) => {
@@ -154,12 +151,10 @@ export default function Chat() {
 
   const handleReset = async () => {
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_HOST}/api/v1/audit/reset-chat`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        },
+      const res = await axiosInstance.post(
+        "/audit/reset-chat",
+        {},
+        { headers: { "Content-Type": "application/json" } },
       );
       if (!res.ok) throw new Error("Ошибка сброса чата");
       const data = await res.json();
@@ -237,12 +232,8 @@ export default function Chat() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(
-          `${import.meta.env.VITE_API_HOST}/api/v1/audit/session-info`,
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        updateSessionState(data);
+        const res = await axiosInstance.get("/audit/session-info");
+        updateSessionState(res.data);
       } catch {}
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

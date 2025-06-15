@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 
 from core.database import Base
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql.functions import func
@@ -64,12 +64,9 @@ class PreferenceModel(Base):
 
 class SessionModel(Base):
     __tablename__ = "sessions"
-    __table_args__ = (UniqueConstraint("ip", "user_agent", name="uq_ip_user_agent"),)
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    ip: Mapped[str] = mapped_column(String(64), nullable=True)
-    user_agent: Mapped[str] = mapped_column(String(512), nullable=True)
 
     courses: Mapped[list["CourseModel"]] = relationship(back_populates="session")
     preferences: Mapped[list["PreferenceModel"]] = relationship(
