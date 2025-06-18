@@ -76,7 +76,7 @@ async def login(
             samesite="lax",
             max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
         )
-        return Token(refresh_token=refresh_token.token, access_token=access_token)
+        return Token(access_token=access_token)
     except HTTPException as e:
         log.exception(f"Error in login: {e}")
         raise e
@@ -148,7 +148,7 @@ async def refresh_token(
             samesite="lax",
             max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
         )
-        return new_tokens
+        return Token(access_token=new_tokens.access_token)
     except HTTPException as e:
         log.exception(f"Error in refresh: {e}")
         raise e
@@ -205,7 +205,11 @@ async def reset_password(
 
 
 @auth_router.post("/google-callback", response_model=Token)
-async def auth_via_google(code: GoogleLoginRequest, uow: UnitOfWork = Depends(get_uow)):
+async def auth_via_google(
+    code: GoogleLoginRequest,
+    response: Response,
+    uow: UnitOfWork = Depends(get_uow),
+):
     """
     Аутентификация через Google.
     Принимает `code`, возвращает JWT-токены.
@@ -220,7 +224,15 @@ async def auth_via_google(code: GoogleLoginRequest, uow: UnitOfWork = Depends(ge
             )
         access_token = service.create_access_token(data={"sub": user.email})
         refresh_token = await service.create_refresh_token(user_id=user.id)
-        return Token(refresh_token=refresh_token.token, access_token=access_token)
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token.token,
+            httponly=True,
+            secure=settings.SECURE_COOKIES,
+            samesite="lax",
+            max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
+        )
+        return Token(access_token=access_token)
     except HTTPException as e:
         log.exception(f"Error in auth_via_google: {e}")
         raise e

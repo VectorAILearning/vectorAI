@@ -4,7 +4,6 @@ from pydantic import BaseModel, ConfigDict, EmailStr
 class Token(BaseModel):
     access_token: str
     token_type: str = "Bearer"
-    refresh_token: str
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
 
