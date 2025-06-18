@@ -142,13 +142,13 @@ async def refresh_token(
             )
         response.set_cookie(
             key="refresh_token",
-            value=new_tokens.refresh_token,
+            value=new_tokens["refresh_token"],
             httponly=True,
             secure=settings.SECURE_COOKIES,
             samesite="lax",
             max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
         )
-        return Token(access_token=new_tokens.access_token)
+        return Token(access_token=new_tokens["access_token"])
     except HTTPException as e:
         log.exception(f"Error in refresh: {e}")
         raise e
