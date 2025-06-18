@@ -3,16 +3,18 @@ import Header from "../components/Header";
 import ChatButton from "../components/ChatButton";
 import CourseSidebar from "../components/CourseSidebar";
 import { useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "../store";
+
 import {
   setCourses,
   setSelectedCourse,
-  setSelectedLesson,
 } from "../store/userCoursesSlice";
+import { fetchUserLessonsById  } from "../store/userLessonsSlice.ts";
 import axiosInstance from "../api/axiosInstance.ts";
 
 const CourseLayout = () => {
-  const dispatch = useDispatch();
+  
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { courseId, lessonId } = useParams();
   useEffect(() => {
@@ -33,15 +35,9 @@ const CourseLayout = () => {
           dispatch(setSelectedCourse(data[0]));
           return;
         }
+
         if (lessonId) {
-          const currentLesson = currentCourse.modules
-            .flatMap((module: any) => module.lessons)
-            .find((lesson: any) => lesson.id === lessonId);
-          if (!currentLesson) {
-            navigate(`/course/${courseId}`, { replace: true });
-            return;
-          }
-          dispatch(setSelectedLesson(currentLesson));
+         dispatch(fetchUserLessonsById(`/course/${courseId}/lesson/${lessonId}`))
         }
         dispatch(setSelectedCourse(currentCourse));
       })

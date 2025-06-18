@@ -19,7 +19,6 @@ export default function QuestionContent({ questionContent }) {
   const [selectOptions, setSelectedOptions] = useState<string>("");
   const [isSolution, setIsSolution] = useState<boolean>(false);
   const [SolutionError, setSolutionError] = useState<boolean>(false);
-  console.log(questionContent);
   const handleSubmit = () => {
     if (selectOptions === questionContent.answer) {
       setIsSolution(true);
