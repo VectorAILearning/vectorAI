@@ -13,10 +13,6 @@ class UserRegister(BaseModel):
     password: str
 
 
-class RefreshTokenRequest(BaseModel):
-    refresh_token: str
-
-
 class RegistrationResponse(BaseModel):
     result: str
 
