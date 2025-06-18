@@ -48,6 +48,5 @@ const userCoursesSlice = createSlice({
   },
 });
 
-export const { setCourses, setSelectedCourse } =
-  userCoursesSlice.actions;
+export const { setCourses, setSelectedCourse } = userCoursesSlice.actions;
 export default userCoursesSlice.reducer;

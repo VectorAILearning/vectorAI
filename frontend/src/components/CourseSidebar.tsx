@@ -1,21 +1,21 @@
 import { Link } from "react-router-dom";
 import { FiRefreshCw } from "react-icons/fi";
 import Tippy from "@tippyjs/react";
-import { useSelector,useDispatch } from "react-redux";
-import { clearUserLessons } from "../store/userLessonsSlice"
+import { useSelector, useDispatch } from "react-redux";
+import { clearUserLessons } from "../store/userLessonsSlice";
 import axiosInstance from "../api/axiosInstance";
 
 const CourseSidebar = () => {
   const selectedCourse = useSelector(
     (state: any) => state.userCourses.selectedCourse || null,
   );
-  const dispatch = useDispatch()
+  const dispatch = useDispatch();
   const isSidebarOpen = useSelector((state: any) => state.ui.isSidebarOpen);
   function handleRegenerateLesson(lessonId: string) {
     axiosInstance.post(`/lesson/${lessonId}/generate-content?force=true`);
     alert("Урок в процессе перегенерации! Не нажимайте на кнопку снова!");
   }
- 
+
   return (
     <aside
       className={`w-1/4 bg-base-200 p-2 overflow-y-auto text-base-content ${isSidebarOpen ? "block" : "hidden"}`}

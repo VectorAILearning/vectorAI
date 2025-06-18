@@ -5,15 +5,11 @@ import CourseSidebar from "../components/CourseSidebar";
 import { useEffect } from "react";
 import { useAppDispatch } from "../store";
 
-import {
-  setCourses,
-  setSelectedCourse,
-} from "../store/userCoursesSlice";
-import { fetchUserLessonsById  } from "../store/userLessonsSlice.ts";
+import { setCourses, setSelectedCourse } from "../store/userCoursesSlice";
+import { fetchUserLessonsById } from "../store/userLessonsSlice.ts";
 import axiosInstance from "../api/axiosInstance.ts";
 
 const CourseLayout = () => {
-  
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { courseId, lessonId } = useParams();
@@ -37,7 +33,9 @@ const CourseLayout = () => {
         }
 
         if (lessonId) {
-         dispatch(fetchUserLessonsById(`/course/${courseId}/lesson/${lessonId}`))
+          dispatch(
+            fetchUserLessonsById(`/course/${courseId}/lesson/${lessonId}`),
+          );
         }
         dispatch(setSelectedCourse(currentCourse));
       })

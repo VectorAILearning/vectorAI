@@ -32,54 +32,49 @@ function LessonBlock({ block }: { block: any }) {
 }
 
 export default function LessonsPage() {
-
-const selectedLesson = useSelector(
+  const selectedLesson = useSelector(
     (state: any) => state.userLessons.selectedLessons || null,
   );
-  const error = useSelector(
-    (state: any) => state.userLessons.error || null,
-  );
+  const error = useSelector((state: any) => state.userLessons.error || null);
   const loading = useSelector(
     (state: any) => state.userLessons.loading || null,
   );
   return (
     <div className="max-w-3xl w-full">
-      <div>  
-        
-          {loading === "succeeded" ? <div>
-        <div className="my-8 prose prose-md mx-auto text-center">
-         <h1>{selectedLesson?.title || selectedLesson?.detail}</h1>
-         <p>{selectedLesson?.description}</p>
-        </div>
-      
-      {selectedLesson?.contents && selectedLesson.contents.length > 0 && (
-        <>
-          {selectedLesson.contents.map((block: any, idx: number) => (
-            <div
-              key={block.id || idx}
-              className="relative bg-base-200 rounded-md p-5 mb-3"
-            >
-              <div className="prose prose-md mx-auto">
-                <LessonBlock block={block} />
-              </div>
-              <div className="absolute bottom-2 right-2 text-sm text-base-content/70 text-primary font-semibold">
-                {block.type.toUpperCase()}
-              </div>
+      <div>
+        {loading === "succeeded" ? (
+          <div>
+            <div className="my-8 prose prose-md mx-auto text-center">
+              <h1>{selectedLesson?.title || selectedLesson?.detail}</h1>
+              <p>{selectedLesson?.description}</p>
             </div>
-          ))}
-        </>
-      )}
-      </div> 
-      : loading === "failed"
-       ? error 
-       : 
-      <div className="my-8 prose prose-md mx-auto text-center">
-          <span className="loading loading-spinner loading-xl"></span>
-      </div> }
-      
-      
+
+            {selectedLesson?.contents && selectedLesson.contents.length > 0 && (
+              <>
+                {selectedLesson.contents.map((block: any, idx: number) => (
+                  <div
+                    key={block.id || idx}
+                    className="relative bg-base-200 rounded-md p-5 mb-3"
+                  >
+                    <div className="prose prose-md mx-auto">
+                      <LessonBlock block={block} />
+                    </div>
+                    <div className="absolute bottom-2 right-2 text-sm text-base-content/70 text-primary font-semibold">
+                      {block.type.toUpperCase()}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        ) : loading === "failed" ? (
+          error
+        ) : (
+          <div className="my-8 prose prose-md mx-auto text-center">
+            <span className="loading loading-spinner loading-xl"></span>
+          </div>
+        )}
       </div>
-      
     </div>
   );
 }

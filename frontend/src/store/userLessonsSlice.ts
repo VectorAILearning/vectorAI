@@ -1,7 +1,14 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../api/axiosInstance.ts";
 
-type ContentType = 'text' | 'video' | 'code' | 'dialog' | 'practice' | 'reflection' | 'test';
+type ContentType =
+  | "text"
+  | "video"
+  | "code"
+  | "dialog"
+  | "practice"
+  | "reflection"
+  | "test";
 
 interface Content {
   id: string;
@@ -21,18 +28,17 @@ interface Lesson {
 }
 
 export const fetchUserLessonsById = createAsyncThunk(
-  'usersLessons/fetchById',
+  "usersLessons/fetchById",
   async (lessonId: string) => {
-    const response = await axiosInstance.get(lessonId)
-    return response.data
-  }
-)
-
+    const response = await axiosInstance.get(lessonId);
+    return response.data;
+  },
+);
 
 interface LessonState {
-  selectedLessons: Lesson[]; 
-  loading: 'idle' | 'loading' | 'succeeded' | 'failed';
-  error: string | null
+  selectedLessons: Lesson[];
+  loading: "idle" | "loading" | "succeeded" | "failed";
+  error: string | null;
 }
 
 const initialState: LessonState = {
@@ -47,24 +53,23 @@ const userLessonsSlice = createSlice({
   reducers: {
     clearUserLessons: (state) => {
       state.selectedLessons = [];
-    }
+    },
   },
   extraReducers: (builder) => {
     builder
-    .addCase(fetchUserLessonsById.pending, (state) => {
-      state.loading = "loading"
-    })
-    .addCase(fetchUserLessonsById.fulfilled, (state, action) => {
-      state.loading = "succeeded"
-      state.selectedLessons = action.payload
-    })
-    .addCase(fetchUserLessonsById.rejected, (state,action) => {
-      state.loading = 'failed'
-      state.error = action.error.message || "Unknown error"
-    })
+      .addCase(fetchUserLessonsById.pending, (state) => {
+        state.loading = "loading";
+      })
+      .addCase(fetchUserLessonsById.fulfilled, (state, action) => {
+        state.loading = "succeeded";
+        state.selectedLessons = action.payload;
+      })
+      .addCase(fetchUserLessonsById.rejected, (state, action) => {
+        state.loading = "failed";
+        state.error = action.error.message || "Unknown error";
+      });
   },
 });
 
-export const { clearUserLessons } =
-  userLessonsSlice.actions;
+export const { clearUserLessons } = userLessonsSlice.actions;
 export default userLessonsSlice.reducer;
