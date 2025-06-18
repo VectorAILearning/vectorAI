@@ -169,7 +169,7 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный токен"
             )
 
-    async def refresh_access_token(self, refresh_token_str: str) -> Token:
+    async def refresh_access_token(self, refresh_token_str: str) -> dict[str, str]:
         rt_from_db = await self.uow.refresh_token_repo.get_by_token(refresh_token_str)
         if not rt_from_db:
             raise HTTPException(
@@ -198,9 +198,10 @@ class AuthService:
 
         await self.uow.refresh_token_repo.revoke(rt_from_db.id)
         new_refresh_token_db = await self.create_refresh_token(user_id=user.id)
-        return Token(
-            access_token=new_access_token, refresh_token=new_refresh_token_db.token
-        )
+        return {
+            "access_token": new_access_token,
+            "refresh_token": new_refresh_token_db.token,
+        }
 
     async def forgot_password(self, email: EmailStr):
         user = await self.uow.auth_repo.get_by_email(email)
