@@ -14,12 +14,10 @@ export const handleLoginFulfilled = (
 ) => {
   state.loading = false;
   state.token = action.payload.access_token;
-  state.refreshToken = action.payload.refresh_token;
   state.error = null;
   state.isAuth = true;
 
   localStorage.setItem("token", action.payload.access_token);
-  localStorage.setItem("refreshToken", action.payload.refresh_token);
 };
 
 export const handleLoginRejected = (
@@ -28,7 +26,6 @@ export const handleLoginRejected = (
 ) => {
   state.loading = false;
   state.token = null;
-  state.refreshToken = null;
   state.error = action.payload ?? "Неизвестная ошибка";
   state.message = null;
 };
