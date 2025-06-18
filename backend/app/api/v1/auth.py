@@ -11,7 +11,6 @@ from schemas import UserBase
 from schemas.auth import (
     ForgotPasswordRequest,
     GoogleLoginRequest,
-    RefreshTokenRequest,
     RegistrationResponse,
     ResetPasswordRequest,
     Token,
@@ -121,7 +120,7 @@ async def register(
 @auth_router.post("/refresh", response_model=Token)
 async def refresh_token(
     response: Response,
-    token_request: RefreshTokenRequest,
+    request: Request,
     uow: UnitOfWork = Depends(get_uow),
 ):
     """
@@ -129,7 +128,18 @@ async def refresh_token(
     """
     try:
         service = AuthService(uow)
-        new_tokens = await service.refresh_access_token(token_request.refresh_token)
+        old_refresh_token = request.cookies.get("refresh_token")
+        if not old_refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token не найден",
+            )
+        new_tokens = await service.refresh_access_token(old_refresh_token)
+        if not new_tokens:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Не удалось обновить токен",
+            )
         response.set_cookie(
             key="refresh_token",
             value=new_tokens.refresh_token,
