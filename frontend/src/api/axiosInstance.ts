@@ -42,13 +42,9 @@ axiosInstance.interceptors.request.use(async (config) => {
     if (expiresAt - now < buffer && !isRefreshing) {
       isRefreshing = true;
       try {
-        const refreshToken = localStorage.getItem("refreshToken");
-        const { data } = await axios.post<IToken>(
-          `${apiHost}/api/v1/auth/refresh`,
-          { refresh_token: refreshToken },
-        );
+        const { data } = await axiosInstance.post<IToken>("/auth/refresh");
+
         localStorage.setItem("token", data.access_token);
-        localStorage.setItem("refreshToken", data.refresh_token);
         store.dispatch(updateToken(data));
         processQueue(null, data.access_token);
         token = data.access_token;
@@ -78,38 +74,29 @@ axiosInstance.interceptors.request.use(async (config) => {
 });
 
 axiosInstance.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+    (response) => response,
+    async (error) => {
+      const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
 
-      const refreshToken = localStorage.getItem("refreshToken");
-      if (!refreshToken) {
-        store.dispatch(logOut());
-        return Promise.reject(error);
+        try {
+          const { data } = await axiosInstance.post<IToken>("/auth/refresh");
+
+          localStorage.setItem("token", data.access_token);
+          store.dispatch(updateToken(data));
+
+          originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
+          return axiosInstance(originalRequest);
+        } catch (err) {
+          store.dispatch(logOut());
+          return Promise.reject(err);
+        }
       }
 
-      try {
-        const { data } = await axios.post<IToken>(
-          `${apiHost}/api/v1/auth/refresh`,
-          { refresh_token: refreshToken },
-        );
-        localStorage.setItem("token", data.access_token);
-        localStorage.setItem("refreshToken", data.refresh_token);
-        store.dispatch(updateToken(data));
-
-        originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
-        return axiosInstance(originalRequest);
-      } catch (err) {
-        store.dispatch(logOut());
-        return Promise.reject(err);
-      }
-    }
-
-    return Promise.reject(error);
-  },
+      return Promise.reject(error);
+    },
 );
 
 export default axiosInstance;
