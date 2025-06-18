@@ -15,8 +15,10 @@ import CheckEmailPage from "./pages/CheckEmailPage.tsx";
 import VerifyEmailPage from "./pages/VerifyEmailPage.tsx";
 import PrivateRoute from "./components/PrivateRoute.tsx";
 import PublicRoute from "./components/PublicRoute.tsx";
+import {useAuthUser} from "./hooks/useAuthUser.ts";
 
 export default function App() {
+    useAuthUser();
   return (
     <BrowserRouter>
       <Routes>
