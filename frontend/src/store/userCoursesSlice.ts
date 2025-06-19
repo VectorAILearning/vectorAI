@@ -45,12 +45,8 @@ const userCoursesSlice = createSlice({
     setSelectedCourse(state, action: PayloadAction<Course | null>) {
       state.selectedCourse = action.payload;
     },
-    setSelectedLesson(state, action: PayloadAction<Lesson | null>) {
-      state.selectedLesson = action.payload;
-    },
   },
 });
 
-export const { setCourses, setSelectedCourse, setSelectedLesson } =
-  userCoursesSlice.actions;
+export const { setCourses, setSelectedCourse } = userCoursesSlice.actions;
 export default userCoursesSlice.reducer;

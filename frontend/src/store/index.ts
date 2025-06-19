@@ -4,6 +4,7 @@ import userReducer from "./userSlice.ts";
 import uiReducer from "./uiSlice.ts";
 import userCoursesReducer from "./userCoursesSlice.ts";
 import authReducer from "./authSlice";
+import userLessonsReducer from "./userLessonsSlice.ts";
 
 import {
   type TypedUseSelectorHook,
@@ -16,6 +17,7 @@ export const store = configureStore({
     session: sessionReducer,
     user: userReducer,
     userCourses: userCoursesReducer,
+    userLessons: userLessonsReducer,
     ui: uiReducer,
     auth: authReducer,
   },

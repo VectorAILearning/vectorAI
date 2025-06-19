@@ -1,15 +1,16 @@
 import { Link } from "react-router-dom";
 import { FiRefreshCw } from "react-icons/fi";
 import Tippy from "@tippyjs/react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { clearUserLessons } from "../store/userLessonsSlice";
 import axiosInstance from "../api/axiosInstance";
 
 const CourseSidebar = () => {
   const selectedCourse = useSelector(
     (state: any) => state.userCourses.selectedCourse || null,
   );
+  const dispatch = useDispatch();
   const isSidebarOpen = useSelector((state: any) => state.ui.isSidebarOpen);
-
   function handleRegenerateLesson(lessonId: string) {
     axiosInstance.post(`/lesson/${lessonId}/generate-content?force=true`);
     alert("Урок в процессе перегенерации! Не нажимайте на кнопку снова!");
@@ -27,6 +28,7 @@ const CourseSidebar = () => {
               {module.lessons?.map((lesson: any, lidx: number) => (
                 <li key={lidx}>
                   <Link
+                    onClick={() => dispatch(clearUserLessons())}
                     to={`/course/${selectedCourse.id}/lesson/${lesson.id}`}
                     className="text-base justify-between"
                   >

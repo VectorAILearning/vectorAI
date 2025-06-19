@@ -4,7 +4,6 @@ import { useSelector } from "react-redux";
 const CoursePage: React.FC = () => {
   const selectedCourse =
     useSelector((state: any) => state.userCourses.selectedCourse) || null;
-
   return (
     <div className="max-w-3xl w-full mx-auto">
       <div className="prose prose-md text-center my-8">
