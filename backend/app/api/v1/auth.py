@@ -288,3 +288,16 @@ async def google_auth():
         f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(query_params)}"
     )
     return RedirectResponse(url=google_auth_url)
+
+
+@auth_router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(response: Response):
+    """
+    Выход пользователя. Удаляет куки refresh_token и session.
+    """
+    response.delete_cookie(
+        key="refresh_token",
+        httponly=True,
+        secure=settings.SECURE_COOKIES,
+        samesite="lax",
+    )
