@@ -31,9 +31,7 @@ const UserProfilePage = () => {
     [],
   );
 
-  useEffect(() => {
-    dispatch(me());
-  }, []);
+
   return (
     <div className="container max-w-2xl mx-auto py-8 mt-16">
       <div className="container max-w-2xl mx-auto py-8 rounded-2xl  border">

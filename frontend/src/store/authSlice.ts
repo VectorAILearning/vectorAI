@@ -15,7 +15,6 @@ import type { IToken } from "../types/token.ts";
 
 export interface AuthState {
   token: string | null;
-  refreshToken: string | null;
   loading: boolean;
   error: string | null;
   message: string | null;
@@ -24,7 +23,6 @@ export interface AuthState {
 
 const initialState: AuthState = {
   token: localStorage.getItem("token"),
-  refreshToken: localStorage.getItem("refreshToken"),
   loading: false,
   error: null,
   message: null,
@@ -37,14 +35,11 @@ const authSlice = createSlice({
   reducers: {
     logOut(state) {
       state.token = null;
-      state.refreshToken = null;
       state.isAuth = false;
       localStorage.removeItem("token");
-      localStorage.removeItem("refreshToken");
     },
     updateToken(state, action: PayloadAction<IToken>) {
       state.token = action.payload.access_token;
-      state.refreshToken = action.payload.refresh_token;
       state.isAuth = true;
     },
     clearAuthState(state) {
