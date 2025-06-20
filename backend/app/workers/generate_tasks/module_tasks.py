@@ -1,10 +1,10 @@
 import logging
 import uuid
 
+from core.database import get_async_session_generator
 from schemas.course import LessonOut
 from schemas.generate import GenerateTaskContext
-from services.learning_service.service import LearningService
-from utils import uow_context
+from services.learning_service.service import get_learning_service
 from workers.generate_tasks.helpers import (
     _fail_task,
     _finish_task,
@@ -27,14 +27,15 @@ async def generate_module_plan(
 ) -> list[LessonOut]:
     try:
         # ── генерируем уроки в модуле ─────────────────────────────────
-        async with uow_context() as uow:
-            await _start_task(uow, ctx["job_id"])
+        async with get_async_session_generator() as async_session:
+            await _start_task(async_session, ctx["job_id"])
 
-            lessons = await LearningService(uow).create_lessons_plan_by_module_id(
+            learning_service = get_learning_service(async_session)
+            lessons = await learning_service.create_lessons_plan_by_module_id(
                 module_id, user_pref_summary
             )
             await _finish_task(
-                uow,
+                async_session,
                 ctx["job_id"],
                 [LessonOut.model_validate(l).model_dump_json() for l in lessons],
             )
@@ -67,5 +68,6 @@ async def generate_module_plan(
         return [LessonOut.model_validate(l) for l in lessons]
 
     except Exception as e:
-        await _fail_task(ctx["job_id"], str(e))
+        async with get_async_session_generator() as async_session:
+            await _fail_task(async_session, ctx["job_id"], str(e))
         raise

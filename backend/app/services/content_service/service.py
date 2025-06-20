@@ -1,19 +1,26 @@
-import json
-
 from agents.content_agent.agent import ContentPlanAgent
 from models import ContentModel
 from schemas.course import (
     CourseStructureOut,
-    LessonOut,
     LessonStructureWithContentsOut,
     ModuleStructureOut,
 )
-from utils.uow import UnitOfWork
+from services.content_service.repository import ContentRepository
+from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def get_content_service(session: AsyncSession) -> "ContentService":
+    """
+    Фабричный метод для создания ContentService
+    """
+    content_repo = ContentRepository(session)
+    return ContentService(session, content_repo)
 
 
 class ContentService:
-    def __init__(self, uow: UnitOfWork):
-        self.uow = uow
+    def __init__(self, session: AsyncSession, content_repo: ContentRepository):
+        self.session = session
+        self.content_repo = content_repo
         self.agent = ContentPlanAgent()
 
     async def generate_content_by_block(self, content_obj: ContentModel):
@@ -38,6 +45,6 @@ class ContentService:
             previous_outlines=previous_outlines,
         )
         content_obj.content = content
-        await self.uow.session.commit()
-        await self.uow.session.refresh(content_obj)
+        await self.session.commit()
+        await self.session.refresh(content_obj)
         return content_obj

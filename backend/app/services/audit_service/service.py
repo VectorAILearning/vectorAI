@@ -3,18 +3,49 @@ import logging
 import uuid
 
 from agents.audit_agent.agent import AuditAgent
+from core.database import get_async_session_generator
 from models.base import PreferenceModel
 from models.task import TaskTypeEnum
 from schemas.task import TaskIn
 from services import RedisCacheService, get_cache_service
+from services.audit_service.repository import AuditRepository
 from services.message_bus import push_and_publish
-from services.task_service.service import TaskService
+from services.task_service.service import get_task_service
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.websockets import WebSocket
-from utils.uow import uow_context
 from utils.ws_msg import _msg
 from workers.generate_tasks.course_tasks import GenerateDeepEnum
 
 log = logging.getLogger(__name__)
+
+
+def get_audit_service(session: AsyncSession) -> "AuditService":
+    """
+    Фабричный метод для создания AuditService
+    """
+    audit_repo = AuditRepository(session)
+    return AuditService(session, audit_repo)
+
+
+class AuditService:
+    def __init__(
+        self,
+        session: AsyncSession,
+        audit_repo: AuditRepository,
+    ):
+        self.session = session
+        self.audit_repo = audit_repo
+
+    async def create_user_preference_by_audit_history(
+        self,
+        audit_history: str,
+        sid: uuid.UUID | None = None,
+        user_id: uuid.UUID | None = None,
+    ) -> PreferenceModel:
+        summary = AuditAgent().summarize_profile_by_audit_history(audit_history)
+        return await self.audit_repo.create_user_preference(
+            summary, sid=sid, user_id=user_id
+        )
 
 
 class AuditDialogService:
@@ -113,8 +144,10 @@ class AuditDialogService:
             session_id=sid,
             user_id=user_id,
         )
-        async with uow_context() as uow:
-            await TaskService(uow).create_task(
+
+        async with get_async_session_generator() as async_session:
+            task_service = get_task_service(async_session)
+            await task_service.create_task(
                 TaskIn(
                     id=job.job_id,
                     task_type=TaskTypeEnum.generate_course,
@@ -125,16 +158,4 @@ class AuditDialogService:
                     user_id=uuid.UUID(user_id) if user_id else None,
                     session_id=uuid.UUID(sid) if sid else None,
                 )
-            )
-
-    async def create_user_preference_by_audit_history(
-        self,
-        audit_history: str,
-        sid: uuid.UUID | None = None,
-        user_id: uuid.UUID | None = None,
-    ) -> PreferenceModel:
-        summary = self.agent.summarize_profile_by_audit_history(audit_history)
-        async with uow_context() as uow:
-            return await uow.audit_repo.create_user_preference(
-                summary, sid=sid, user_id=user_id
             )

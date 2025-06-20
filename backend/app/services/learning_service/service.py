@@ -13,15 +13,34 @@ from schemas.course import (
     LessonStructureOut,
     ModuleStructureWithLessonsOut,
 )
-from utils.uow import UnitOfWork
+from services.audit_service.repository import AuditRepository
+from services.learning_service.repository import LearningRepository
+from sqlalchemy.ext.asyncio import AsyncSession
 
 log = logging.getLogger(__name__)
 
 
+def get_learning_service(session: AsyncSession) -> "LearningService":
+    """
+    Фабричный метод для создания LearningService с инициализированными репозиториями
+    """
+    learning_repo = LearningRepository(session)
+    audit_repo = AuditRepository(session)
+    return LearningService(session, learning_repo, audit_repo)
+
+
 class LearningService:
-    def __init__(self, uow: UnitOfWork, agent: CoursePlanAgent | None = None):
+    def __init__(
+        self,
+        session: AsyncSession,
+        learning_repo: LearningRepository,
+        audit_repo: AuditRepository,
+        agent: CoursePlanAgent | None = None,
+    ):
+        self.session = session
+        self.learning_repo = learning_repo
+        self.audit_repo = audit_repo
         self.agent = agent or CoursePlanAgent()
-        self.uow = uow
 
     async def create_course_by_user_preference(
         self,
@@ -31,10 +50,10 @@ class LearningService:
     ) -> CourseModel:
         course_plan = self.agent.generate_course_plan(preference.summary)
         log.info(f"Course plan: {course_plan}")
-        course = await self.uow.learning_repo.create_course_by_json(
+        course = await self.learning_repo.create_course_by_json(
             course_plan, session_id=sid, user_id=user_id
         )
-        await self.uow.audit_repo.update_course_preference(
+        await self.audit_repo.update_course_preference(
             preference.id, PreferenceUpdate(course_id=course.id)
         )
         return course
@@ -42,7 +61,7 @@ class LearningService:
     async def create_modules_plan_by_course_id(
         self, course_id: uuid.UUID, user_preferences: str
     ) -> list[ModuleModel]:
-        course = await self.uow.learning_repo.get_course_by_id(course_id)
+        course = await self.learning_repo.get_course_by_id(course_id)
         course_structure_json = CourseStructureWithModulesOut.model_validate(
             course
         ).model_dump_json()
@@ -52,7 +71,7 @@ class LearningService:
         )
         module_list = []
         for module_dict in module_plan:
-            module = await self.uow.learning_repo.create_module_by_json(
+            module = await self.learning_repo.create_module_by_json(
                 module_json=module_dict, course_id=course_id
             )
             module_list.append(module)
@@ -61,7 +80,7 @@ class LearningService:
     async def create_lessons_plan_by_module_id(
         self, module_id: uuid.UUID, user_preferences: str
     ) -> list[LessonModel]:
-        module = await self.uow.learning_repo.get_module_by_id(module_id)
+        module = await self.learning_repo.get_module_by_id(module_id)
         if not module:
             raise ValueError(f"Модуль {module_id} не найден")
         if not module.course:
@@ -80,7 +99,7 @@ class LearningService:
         )
         lesson_list = []
         for lesson_dict in lesson_plan:
-            lesson = await self.uow.learning_repo.create_lesson_by_json(
+            lesson = await self.learning_repo.create_lesson_by_json(
                 lesson_dict, module_id=module_id
             )
             lesson_list.append(lesson)
@@ -89,7 +108,9 @@ class LearningService:
     async def init_user_courses_by_session_id(
         self, user_id: uuid.UUID, session_id: uuid.UUID
     ):
-        courses = await self.uow.learning_repo.get_courses_by_session_id(session_id)
+        courses = await self.learning_repo.get_courses_by_session_id(session_id)
+
+        log.info(f"Курсы в рамках сессии {session_id}: {courses}")
         if not courses:
             log.info(f"Курсы в рамках сессии {session_id} не были созданы")
             return
@@ -97,11 +118,11 @@ class LearningService:
         for course in courses:
             log.info(f"Обновление курса {course.id}")
 
-            if course.user_id != user_id:
+            if course.user_id and course.user_id != user_id:
                 log.info(f"Курс {course.id} не принадлежит пользователю {user_id}")
                 continue
 
-            await self.uow.learning_repo.update_course(
+            await self.learning_repo.update_course(
                 data=CourseUpdate(user_id=user_id),
                 course_id=course.id,
             )
@@ -109,28 +130,28 @@ class LearningService:
             if not course.preference:
                 log.info(f"Курс {course.id} не имеет предпочтения")
                 continue
-            await self.uow.audit_repo.update_course_preference(
+            await self.audit_repo.update_course_preference(
                 data=PreferenceUpdate(user_id=user_id),
                 preference_id=course.preference.id,
             )
 
     async def get_course_by_id(self, course_id: uuid.UUID):
-        return await self.uow.learning_repo.get_course_by_id(course_id)
+        return await self.learning_repo.get_course_by_id(course_id)
 
     async def get_module_by_id(self, module_id: uuid.UUID):
-        return await self.uow.learning_repo.get_module_by_id(module_id)
+        return await self.learning_repo.get_module_by_id(module_id)
 
     async def get_lesson_by_id(self, lesson_id: uuid.UUID):
-        return await self.uow.learning_repo.get_lesson_by_id(lesson_id)
+        return await self.learning_repo.get_lesson_by_id(lesson_id)
 
     async def get_first_module_by_course_id(self, course_id: uuid.UUID):
-        course = await self.uow.learning_repo.get_course_by_id(course_id)
+        course = await self.learning_repo.get_course_by_id(course_id)
         if not course:
             raise ValueError(f"Курс {course_id} не найден")
         return min(course.modules, key=lambda m: m.position)
 
     async def get_first_lesson_by_module_id(self, module_id: uuid.UUID):
-        module = await self.uow.learning_repo.get_module_by_id(module_id)
+        module = await self.learning_repo.get_module_by_id(module_id)
         if not module:
             raise ValueError(f"Модуль {module_id} не найден")
         return min(module.lessons, key=lambda l: l.position)
@@ -138,7 +159,7 @@ class LearningService:
     async def generate_and_save_lesson_content_plan(
         self, lesson_id: uuid.UUID, user_preferences: str = ""
     ) -> list[ContentModel]:
-        lesson: LessonModel = await self.uow.learning_repo.get_lesson_by_id(lesson_id)
+        lesson: LessonModel = await self.learning_repo.get_lesson_by_id(lesson_id)
         if not lesson:
             raise ValueError(f"Урок {lesson_id} не найден")
 
@@ -175,10 +196,10 @@ class LearningService:
                 position=content_obj.position,
                 outline=content_obj.outline,
             )
-            self.uow.session.add(db_content)
+            self.session.add(db_content)
             content_list.append(db_content)
 
-        await self.uow.session.commit()
+        await self.session.commit()
         for db_content in content_list:
-            await self.uow.session.refresh(db_content)
+            await self.session.refresh(db_content)
         return content_list

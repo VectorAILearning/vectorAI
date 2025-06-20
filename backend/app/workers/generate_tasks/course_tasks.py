@@ -1,14 +1,14 @@
 import logging
 import uuid
 
+from core.database import get_async_session_generator
 from models.task import TaskTypeEnum
 from schemas.course import CourseOut, ModuleOut
 from schemas.generate import GenerateDeepEnum, GenerateTaskContext
-from schemas.task import TaskIn, TaskOut
-from services.learning_service.service import LearningService
+from schemas.task import TaskOut
+from services.learning_service.service import get_learning_service
 from services.message_bus import push_and_publish
-from services.task_service.service import TaskService
-from utils import _msg, uow_context
+from utils import _msg
 from workers.generate_tasks.helpers import (
     _fail_course_generation_session,
     _fail_task,
@@ -41,8 +41,8 @@ async def generate_course(
         user_id=user_id,
     )
     try:
-        async with uow_context() as uow:
-            await _start_task(uow, ctx["job_id"])
+        async with get_async_session_generator() as async_session:
+            await _start_task(async_session, ctx["job_id"])
 
             task_db = await _spawn_user_summary_task(
                 ctx, audit_history, session_id, user_id, gctx, ctx["job_id"]
@@ -54,9 +54,10 @@ async def generate_course(
             )
             return task_db
     except Exception as e:
-        await _fail_task(ctx["job_id"], str(e))
-        await _fail_course_generation_session(session_id)
-        raise
+        async with get_async_session_generator() as async_session:
+            await _fail_task(async_session, ctx["job_id"], str(e))
+            await _fail_course_generation_session(session_id)
+            raise
 
 
 # ────────────────────────────────────────────────────────────────────────
@@ -70,18 +71,21 @@ async def generate_course_base(
     user_id: uuid.UUID | None = None,
 ) -> CourseOut:
     try:
-        async with uow_context() as uow:
-            await _start_task(uow, ctx["job_id"])
+        async with get_async_session_generator() as async_session:
+            await _start_task(async_session, ctx["job_id"])
 
-            pref = await uow.audit_repo.get_by_id(user_pref_id)
+            learning_service = get_learning_service(async_session)
+            pref = await learning_service.audit_repo.get_by_id(user_pref_id)
             if not pref:
                 raise ValueError("preference not found")
 
-            course = await LearningService(uow).create_course_by_user_preference(
+            course = await learning_service.create_course_by_user_preference(
                 pref, sid=session_id, user_id=user_id
             )
             await _finish_task(
-                uow, ctx["job_id"], CourseOut.model_validate(course).model_dump_json()
+                async_session,
+                ctx["job_id"],
+                CourseOut.model_validate(course).model_dump_json(),
             )
             await push_and_publish(
                 _msg("bot", "Структура курса сгенерирована!", "chat_info"),
@@ -111,9 +115,10 @@ async def generate_course_base(
                 )
         return CourseOut.model_validate(course)
     except Exception as e:
-        await _fail_task(ctx["job_id"], str(e))
-        await _fail_course_generation_session(session_id)
-        raise
+        async with get_async_session_generator() as async_session:
+            await _fail_task(async_session, ctx["job_id"], str(e))
+            await _fail_course_generation_session(session_id)
+            raise
 
 
 # ────────────────────────────────────────────────────────────────────────
@@ -128,13 +133,14 @@ async def generate_course_plan(
     user_id: uuid.UUID | None = None,
 ) -> list[ModuleOut]:
     try:
-        async with uow_context() as uow:
-            await _start_task(uow, ctx["job_id"])
-            modules = await LearningService(uow).create_modules_plan_by_course_id(
+        async with get_async_session_generator() as async_session:
+            await _start_task(async_session, ctx["job_id"])
+            learning_service = get_learning_service(async_session)
+            modules = await learning_service.create_modules_plan_by_course_id(
                 course_id, user_pref_summary
             )
             await _finish_task(
-                uow,
+                async_session,
                 ctx["job_id"],
                 [ModuleOut.model_validate(m).model_dump_json() for m in modules],
             )
@@ -157,6 +163,7 @@ async def generate_course_plan(
 
         return [ModuleOut.model_validate(m) for m in modules]
     except Exception as e:
-        await _fail_task(ctx["job_id"], str(e))
-        await _fail_course_generation_session(session_id)
-        raise
+        async with get_async_session_generator() as async_session:
+            await _fail_task(async_session, ctx["job_id"], str(e))
+            await _fail_course_generation_session(session_id)
+            raise

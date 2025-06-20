@@ -3,13 +3,14 @@ from typing import List
 
 import jwt
 from core.config import settings
+from core.database import get_async_session
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from models import UserModel, UserRole
 from schemas.user import UserBase
-from services.auth.service import AuthService
+from services.auth.service import get_auth_service
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
-from utils.uow import UnitOfWork, get_uow
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="v1/auth/login")
 log = logging.getLogger(__name__)
@@ -28,7 +29,8 @@ def decode_access_token(token: str) -> dict | None:
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme), uow: UnitOfWork = Depends(get_uow)
+    token: str = Depends(oauth2_scheme),
+    async_session: AsyncSession = Depends(get_async_session),
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -47,8 +49,8 @@ async def get_current_user(
         log.exception(f"Error in get_current_user: {e}")
         raise credentials_exception
 
-    service = AuthService(uow)
-    user = await service.uow.auth_repo.get_by_email(email)
+    auth_service = get_auth_service(async_session)
+    user = await auth_service.auth_repo.get_by_email(email)
     if not user:
         raise credentials_exception
     return UserBase.model_validate(user)

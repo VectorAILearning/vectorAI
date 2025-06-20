@@ -5,10 +5,12 @@ from contextlib import suppress
 
 from core.broadcast import broadcaster
 from core.config import settings
-from fastapi import APIRouter, HTTPException, Query, WebSocket
+from core.database import get_async_session_generator
+from fastapi import APIRouter, Query, WebSocket
 from services import get_cache_service
+from services.auth.service import get_auth_service
+from services.learning_service.service import get_learning_service
 from utils.auth_utils import decode_access_token
-from utils.uow import uow_context
 
 router = APIRouter()
 
@@ -45,7 +47,7 @@ async def audit_websocket(ws: WebSocket, token: str = Query(None)):
     cache_service = get_cache_service()
     user_id = None
 
-    async with uow_context() as uow:
+    async with get_async_session_generator() as async_session:
         if token:
             token_payload = decode_access_token(token)
             if token_payload:
@@ -54,7 +56,8 @@ async def audit_websocket(ws: WebSocket, token: str = Query(None)):
                     await ws.close(code=1008)
                     return
 
-                user = await uow.auth_repo.get_by_email(email)
+                auth_service = get_auth_service(async_session)
+                user = await auth_service.auth_repo.get_by_email(email)
                 if not user:
                     await ws.close(code=1008)
                     return
@@ -69,11 +72,14 @@ async def audit_websocket(ws: WebSocket, token: str = Query(None)):
         return
 
     try:
-        async with uow_context() as uow:
+        async with get_async_session_generator() as async_session:
             await ws.accept()
             # TODO: получать пользователя, если у пользователя нет подписки, или пользователь
             # не авторизован и при этом уже создал курс, то закрываем соединение
-            course_exist = await uow.learning_repo.get_courses_by_session_id(sid)
+            learning_service = get_learning_service(async_session)
+            course_exist = (
+                await learning_service.learning_repo.get_courses_by_session_id(sid)
+            )
             if settings.CHECK_SUBSCRIPTION and course_exist:
                 await ws.close(code=4001)
                 return

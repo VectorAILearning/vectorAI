@@ -3,48 +3,53 @@ import uuid
 from datetime import datetime
 from typing import Any, Iterable, Optional
 
+from core.database import get_async_session_generator
 from models.content import ContentModel
 from models.task import TaskStatusEnum, TaskTypeEnum
 from schemas.generate import GenerateDeepEnum, GenerateTaskContext
 from schemas.task import TaskIn, TaskOut
 from services import get_cache_service
-from services.learning_service.service import LearningService
-from services.task_service.service import TaskService
+from services.learning_service.service import get_learning_service
+from services.task_service.service import get_task_service
+from sqlalchemy.ext.asyncio import AsyncSession
 from utils.task_utils import wait_for_task_in_db
-from utils.uow import UnitOfWork, uow_context
 
 
 # ────────────────────────────────────────────────────────────────────────
 # Task-flow helpers
 # ────────────────────────────────────────────────────────────────────────
-async def _start_task(uow: UnitOfWork, task_id: str) -> TaskOut:
-    task = await wait_for_task_in_db(uow.task_repo, task_id)
+async def _start_task(session: AsyncSession, task_id: str) -> TaskOut:
+    task_service = get_task_service(session)
+    task = await wait_for_task_in_db(task_service.task_repo, task_id)
     if not task:
         raise Exception(f"Task {task_id} not found in DB")
     task.status = TaskStatusEnum.in_progress
     task.started_at = datetime.now()
-    return await TaskService(uow).update_task(task)
+    return await task_service.update_task(task)
 
 
-async def _finish_task(uow: UnitOfWork, task_id: str, result: Any) -> TaskOut:
-    task = await wait_for_task_in_db(uow.task_repo, task_id)
+async def _finish_task(session: AsyncSession, task_id: str, result: Any) -> TaskOut:
+    task_service = get_task_service(session)
+    task = await wait_for_task_in_db(task_service.task_repo, task_id)
     if not task:
         raise Exception(f"Task {task_id} not found in DB")
     task.status = TaskStatusEnum.success
     task.result = result
     task.finished_at = datetime.now()
-    return await TaskService(uow).update_task(task)
+    return await task_service.update_task(task)
 
 
-async def _fail_task(task_id: str, error_message: str) -> TaskOut:
-    async with uow_context() as uow:
-        task = await wait_for_task_in_db(uow.task_repo, task_id)
-        if not task:
-            raise Exception(f"Task {task_id} not found in DB")
-        task.status = TaskStatusEnum.failed
-        task.error_message = error_message
-        task.finished_at = datetime.now()
-        return await TaskService(uow).update_task(task)
+async def _fail_task(
+    session: AsyncSession, task_id: str, error_message: str
+) -> TaskOut:
+    task_service = get_task_service(session)
+    task = await wait_for_task_in_db(task_service.task_repo, task_id)
+    if not task:
+        raise Exception(f"Task {task_id} not found in DB")
+    task.status = TaskStatusEnum.failed
+    task.error_message = error_message
+    task.finished_at = datetime.now()
+    return await task_service.update_task(task)
 
 
 # ────────────────────────────────────────────────────────────────────────
@@ -158,8 +163,9 @@ async def _enqueue_next_lesson_plan_task(
 
 
 async def _next_module_or_first_lesson(module_id: uuid.UUID):
-    async with uow_context() as uow:
-        module = await LearningService(uow).get_module_by_id(module_id)
+    async with get_async_session_generator() as async_session:
+        learning_service = get_learning_service(async_session)
+        module = await learning_service.get_module_by_id(module_id)
         if not module:
             return None
 
@@ -169,7 +175,7 @@ async def _next_module_or_first_lesson(module_id: uuid.UUID):
         if next_mod:
             return next_mod.id
 
-        first_module = await LearningService(uow).get_first_module_by_course_id(
+        first_module = await learning_service.get_first_module_by_course_id(
             module.course.id
         )
 
@@ -199,14 +205,18 @@ async def _spawn_user_summary_task(
         uid,
         _queue_name="course_generation",
     )
-    async with uow_context() as uow:
-        return await TaskService(uow).create_task(
+
+    async with get_async_session_generator() as async_session:
+        task_service = get_task_service(async_session)
+        return await task_service.create_task(
             TaskIn(
                 id=job.job_id,
                 task_type=TaskTypeEnum.generate_user_summary,
-                params={"audit_history": audit_history},
-                session_id=sid,
+                params={
+                    "audit_history": audit_history,
+                },
                 user_id=uid,
+                session_id=sid,
                 parent_id=uuid.UUID(parent_id) if parent_id else None,
             )
         )
@@ -228,14 +238,18 @@ async def _spawn_course_base_task(
         uid,
         _queue_name="course_generation",
     )
-    async with uow_context() as uow:
-        return await TaskService(uow).create_task(
+
+    async with get_async_session_generator() as async_session:
+        task_service = get_task_service(async_session)
+        return await task_service.create_task(
             TaskIn(
                 id=job.job_id,
                 task_type=TaskTypeEnum.generate_course_base,
-                params={"user_pref_id": str(pref_id)},
-                session_id=sid,
+                params={
+                    "user_pref_id": str(pref_id),
+                },
                 user_id=uid,
+                session_id=sid,
                 parent_id=uuid.UUID(parent_id) if parent_id else None,
             )
         )
@@ -259,14 +273,18 @@ async def _spawn_course_plan_task(
         uid,
         _queue_name="course_generation",
     )
-    async with uow_context() as uow:
-        return await TaskService(uow).create_task(
+
+    async with get_async_session_generator() as async_session:
+        task_service = get_task_service(async_session)
+        return await task_service.create_task(
             TaskIn(
                 id=job.job_id,
                 task_type=TaskTypeEnum.generate_course_plan,
-                params={"course_id": str(course_id)},
-                session_id=sid,
+                params={
+                    "course_id": str(course_id),
+                },
                 user_id=uid,
+                session_id=sid,
                 parent_id=uuid.UUID(parent_id) if parent_id else None,
             )
         )
@@ -290,14 +308,18 @@ async def _spawn_module_plan_task(
         uid,
         _queue_name="course_generation",
     )
-    async with uow_context() as uow:
-        return await TaskService(uow).create_task(
+
+    async with get_async_session_generator() as async_session:
+        task_service = get_task_service(async_session)
+        return await task_service.create_task(
             TaskIn(
                 id=job.job_id,
                 task_type=TaskTypeEnum.generate_module_plan,
-                params={"module_id": str(mod_id)},
-                session_id=sid,
+                params={
+                    "module_id": str(mod_id),
+                },
                 user_id=uid,
+                session_id=sid,
                 parent_id=uuid.UUID(parent_id) if parent_id else None,
             )
         )
@@ -321,14 +343,18 @@ async def _spawn_lesson_content_plan_task(
         user_id,
         _queue_name="course_generation",
     )
-    async with uow_context() as uow:
-        return await TaskService(uow).create_task(
+
+    async with get_async_session_generator() as async_session:
+        task_service = get_task_service(async_session)
+        return await task_service.create_task(
             TaskIn(
                 id=job.job_id,
                 task_type=TaskTypeEnum.generate_lesson_content_plan,
-                params={"lesson_id": str(lesson_id)},
-                session_id=session_id,
+                params={
+                    "lesson_id": str(lesson_id),
+                },
                 user_id=user_id,
+                session_id=session_id,
                 parent_id=uuid.UUID(parent_id) if parent_id else None,
             )
         )
@@ -354,14 +380,18 @@ async def _spawn_generate_content_task(
         user_id,
         _queue_name="course_generation",
     )
-    async with uow_context() as uow:
-        return await TaskService(uow).create_task(
+
+    async with get_async_session_generator() as async_session:
+        task_service = get_task_service(async_session)
+        return await task_service.create_task(
             TaskIn(
                 id=job.job_id,
                 task_type=TaskTypeEnum.generate_content,
-                params={"content_block_id": str(block_id)},
-                session_id=session_id,
+                params={
+                    "content_block_id": str(block_id),
+                },
                 user_id=user_id,
+                session_id=session_id,
                 parent_id=uuid.UUID(parent_id) if parent_id else None,
             )
         )

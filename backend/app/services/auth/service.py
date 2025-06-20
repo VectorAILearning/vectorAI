@@ -11,13 +11,31 @@ from fastapi import HTTPException, status
 from models import RefreshTokenModel, UserModel
 from pydantic import EmailStr
 from schemas import Token
+from services.auth.repositories.auth import AuthRepository
+from services.auth.repositories.token_refresh import RefreshTokenRepository
+from sqlalchemy.ext.asyncio import AsyncSession
 from utils.email_sender import send_password_reset_email, send_verification_email
-from utils.uow import UnitOfWork
+
+
+def get_auth_service(session: AsyncSession) -> "AuthService":
+    """
+    Фабричный метод для создания AuthService с инициализированными репозиториями
+    """
+    auth_repo = AuthRepository(session)
+    refresh_token_repo = RefreshTokenRepository(session)
+    return AuthService(session, auth_repo, refresh_token_repo)
 
 
 class AuthService:
-    def __init__(self: Self, uow: UnitOfWork) -> None:
-        self.uow: UnitOfWork = uow
+    def __init__(
+        self: Self,
+        session: AsyncSession,
+        auth_repo: AuthRepository,
+        refresh_token_repo: RefreshTokenRepository,
+    ) -> None:
+        self.session = session
+        self.auth_repo = auth_repo
+        self.refresh_token_repo = refresh_token_repo
 
     @staticmethod
     def verify_password(plain_password, hashed_password):
@@ -49,7 +67,7 @@ class AuthService:
     async def authenticate_user(
         self, email: EmailStr, password: str
     ) -> UserModel | None:
-        user = await self.uow.auth_repo.get_by_email(email)
+        user = await self.auth_repo.get_by_email(email)
         if not user or not self.verify_password(password, user.password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -63,15 +81,15 @@ class AuthService:
         return user
 
     async def register_user(self, email: EmailStr, password: str) -> UserModel:
-        existing_user = await self.uow.auth_repo.get_by_email(email)
+        existing_user = await self.auth_repo.get_by_email(email)
         if existing_user:
             raise HTTPException(status_code=400, detail="Пользователь уже существует")
         hashed_password = self.get_password_hash(password)
         username = email.split("@")[0]
         user = UserModel(email=email, password=hashed_password, username=username)
-        self.uow.session.add(user)
-        await self.uow.session.flush()
-        await self.uow.session.refresh(user)
+        self.session.add(user)
+        await self.session.commit()
+        await self.session.refresh(user)
         verification_token = self.create_email_verification_token(user.email)
         await send_verification_email(email, verification_token)
         return user
@@ -84,7 +102,7 @@ class AuthService:
         self,
         user_id: uuid.UUID,
     ) -> RefreshTokenModel:
-        await self.uow.refresh_token_repo.revoke_all_for_user(user_id)
+        await self.refresh_token_repo.revoke_all_for_user(user_id)
 
         token_str = self._generate_refresh_token_string()
         expires_delta = timedelta(minutes=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES)
@@ -92,9 +110,9 @@ class AuthService:
         refresh_token_db = RefreshTokenModel(
             user_id=user_id, token=token_str, expires_at=expires_at
         )
-        self.uow.session.add(refresh_token_db)
-        await self.uow.session.flush()
-        await self.uow.session.refresh(refresh_token_db)
+        self.session.add(refresh_token_db)
+        await self.session.commit()
+        await self.session.refresh(refresh_token_db)
         return refresh_token_db
 
     @staticmethod
@@ -144,7 +162,7 @@ class AuthService:
                     detail="Токен не содержит email",
                 )
 
-            user = await self.uow.auth_repo.get_by_email(email)
+            user = await self.auth_repo.get_by_email(email)
             if not user:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -157,8 +175,8 @@ class AuthService:
                 )
 
             user.is_verified = True
-            self.uow.session.add(user)
-            await self.uow.session.flush()
+            self.session.add(user)
+            await self.session.commit()
             return True
         except jwt.ExpiredSignatureError:
             raise HTTPException(
@@ -170,7 +188,7 @@ class AuthService:
             )
 
     async def refresh_access_token(self, refresh_token_str: str) -> dict[str, str]:
-        rt_from_db = await self.uow.refresh_token_repo.get_by_token(refresh_token_str)
+        rt_from_db = await self.refresh_token_repo.get_by_token(refresh_token_str)
         if not rt_from_db:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -187,7 +205,7 @@ class AuthService:
 
         user = rt_from_db.user
         if not user:
-            _user_check = await self.uow.auth_repo.get_by_id(ident=rt_from_db.user_id)
+            _user_check = await self.auth_repo.get_by_id(ident=rt_from_db.user_id)
             if not _user_check:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -196,22 +214,22 @@ class AuthService:
             user = _user_check
         new_access_token = self.create_access_token(data={"sub": user.email})
 
-        await self.uow.refresh_token_repo.revoke(rt_from_db.id)
+        await self.refresh_token_repo.revoke(rt_from_db.id)
         new_refresh_token_db = await self.create_refresh_token(user_id=user.id)
+
         return {
             "access_token": new_access_token,
             "refresh_token": new_refresh_token_db.token,
         }
 
     async def forgot_password(self, email: EmailStr):
-        user = await self.uow.auth_repo.get_by_email(email)
-        if user:
-            password_reset_token = self.create_password_reset_token(user.email)
-            await send_password_reset_email(email, password_reset_token)
-        else:
+        user = await self.auth_repo.get_by_email(email)
+        if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден"
             )
+        reset_token = self.create_password_reset_token(email)
+        await send_password_reset_email(email, reset_token)
 
     async def reset_password(self, token: str, new_password: str):
         try:
@@ -223,25 +241,12 @@ class AuthService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Неверный тип токена",
                 )
-            email: EmailStr = payload.get("sub")
+            email: str = payload.get("sub")
             if not email:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Токен не содержит email",
                 )
-
-            user = await self.uow.auth_repo.get_by_email(email)
-            if not user:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Пользователь не найден",
-                )
-
-            hashed_password = self.get_password_hash(new_password)
-            user.password = hashed_password
-            self.uow.session.add(user)
-            await self.uow.session.flush()
-            return True
         except jwt.ExpiredSignatureError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Токен просрочен"
@@ -251,40 +256,70 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный токен"
             )
 
+        user = await self.auth_repo.get_by_email(email)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден"
+            )
+
+        user.password = self.get_password_hash(new_password)
+        self.session.add(user)
+        await self.session.commit()
+
     async def login_with_google(self, code: str) -> UserModel:
         token_url = "https://oauth2.googleapis.com/token"
-        params = {
+        token_data = {
             "code": code,
             "client_id": settings.GOOGLE_CLIENT_ID,
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
             "redirect_uri": settings.GOOGLE_REDIRECT_URI,
             "grant_type": "authorization_code",
         }
-        async with httpx.AsyncClient() as client:
-            response = await client.post(token_url, data=params)
-            response.raise_for_status()
-            token_data = response.json()
 
-        google_access_token = token_data["access_token"]
-        userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
-        headers = {"Authorization": f"Bearer {google_access_token}"}
         async with httpx.AsyncClient() as client:
-            response = await client.get(userinfo_url, headers=headers)
-            response.raise_for_status()
-            user_info = response.json()
+            token_response = await client.post(token_url, data=token_data)
 
-        email = user_info["email"]
-        user = await self.uow.auth_repo.get_by_email(email)
-        if not user:
-            random_password = self.get_password_hash(secrets.token_urlsafe(16))
-            new_user = UserModel(
-                email=email,
-                username=user_info.get("name", email),
-                password=random_password,
-                is_verified=True,
+        if token_response.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Не удалось получить токен от Google",
             )
-            self.uow.session.add(new_user)
-            await self.uow.session.flush()
-            await self.uow.session.refresh(new_user)
-            return new_user
+
+        token_json = token_response.json()
+        access_token = token_json.get("access_token")
+
+        user_info_url = "https://www.googleapis.com/oauth2/v2/userinfo"
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        async with httpx.AsyncClient() as client:
+            user_response = await client.get(user_info_url, headers=headers)
+
+        if user_response.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Не удалось получить информацию о пользователе",
+            )
+
+        user_info = user_response.json()
+        email = user_info.get("email")
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email не получен от Google",
+            )
+
+        user = await self.auth_repo.get_by_email(email)
+        if not user:
+            # Создаем нового пользователя
+            username = email.split("@")[0]
+            user = UserModel(
+                email=email,
+                username=username,
+                password=secrets.token_urlsafe(32),  # Случайный пароль
+                is_verified=True,  # Google уже верифицировал email
+            )
+            self.session.add(user)
+            await self.session.commit()
+            await self.session.refresh(user)
+
         return user

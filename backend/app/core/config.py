@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
+    REFRESH_TOKEN_COOKIE_KEY: str = "refresh_token"
 
     MAIL_USERNAME: str
     MAIL_PASSWORD: str

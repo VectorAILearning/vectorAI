@@ -1,13 +1,13 @@
 import logging
 import uuid
 
+from core.database import get_async_session_generator
 from models.task import TaskTypeEnum
 from schemas.course import ContentOut
 from schemas.generate import GenerateDeepEnum, GenerateTaskContext
 from schemas.task import TaskIn, TaskOut
-from services.learning_service.service import LearningService
-from services.task_service.service import TaskService
-from utils import uow_context
+from services.learning_service.service import get_learning_service
+from services.task_service.service import get_task_service
 from workers.generate_tasks.helpers import (
     _enqueue_next_lesson_plan_task,
     _fail_course_generation_session,
@@ -37,20 +37,21 @@ async def generate_lesson(
         session_id=session_id,
         user_id=user_id,
     )
-    async with uow_context() as uow:
-        await _start_task(uow, ctx["job_id"])
+    async with get_async_session_generator() as async_session:
+        await _start_task(async_session, ctx["job_id"])
 
-    job = await ctx["arq_queue"].enqueue_job(
-        "generate_lesson_content_plan",
-        lesson_id,
-        user_pref_summary,
-        gctx,
-        session_id,
-        user_id,
-        _queue_name="course_generation",
-    )
-    async with uow_context() as uow:
-        return await TaskService(uow).create_task(
+        job = await ctx["arq_queue"].enqueue_job(
+            "generate_lesson_content_plan",
+            lesson_id,
+            user_pref_summary,
+            gctx,
+            session_id,
+            user_id,
+            _queue_name="course_generation",
+        )
+
+        task_service = get_task_service(async_session)
+        return await task_service.create_task(
             TaskIn(
                 id=job.job_id,
                 task_type=TaskTypeEnum.generate_lesson_content_plan,
@@ -75,14 +76,17 @@ async def generate_lesson_content_plan(
 ) -> list[ContentOut]:
     try:
         # ── планируем блоки ────────────────────────────────────────────
-        async with uow_context() as uow:
-            await _start_task(uow, ctx["job_id"])
-            lesson = await LearningService(uow).get_lesson_by_id(lesson_id)
-            content_blocks = await LearningService(
-                uow
-            ).generate_and_save_lesson_content_plan(lesson_id, user_pref_summary)
+        async with get_async_session_generator() as async_session:
+            await _start_task(async_session, ctx["job_id"])
+            learning_service = get_learning_service(async_session)
+            lesson = await learning_service.get_lesson_by_id(lesson_id)
+            content_blocks = (
+                await learning_service.generate_and_save_lesson_content_plan(
+                    lesson_id, user_pref_summary
+                )
+            )
             await _finish_task(
-                uow,
+                async_session,
                 ctx["job_id"],
                 [
                     ContentOut.model_validate(b).model_dump_json()
@@ -122,6 +126,6 @@ async def generate_lesson_content_plan(
         return [ContentOut.model_validate(b) for b in content_blocks]
 
     except Exception as e:
-        await _fail_task(ctx["job_id"], str(e))
+        await _fail_task(async_session, ctx["job_id"], str(e))
         await _fail_course_generation_session(session_id)
         raise

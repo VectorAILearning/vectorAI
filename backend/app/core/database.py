@@ -1,13 +1,15 @@
+from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Self
 
 from core.config import settings
+from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
 
@@ -15,7 +17,7 @@ Base = declarative_base()
 class DatabaseHelper:
     def __init__(
         self: Self,
-        url: str,
+        url: URL,
         echo: bool = False,
         echo_pool: bool = False,
         max_overflow: int = 10,
@@ -36,12 +38,22 @@ class DatabaseHelper:
             expire_on_commit=False,
         )
 
-    async def dispose(self: Self) -> None:
-        await self.engine.dispose()
-
     async def get_session(self: Self) -> AsyncGenerator[AsyncSession, None]:
         async with self.session_factory() as session:
             yield session
 
 
+if settings.POSTGRES_URL is None:
+    raise ValueError("POSTGRES_URL не может быть None")
+
 db_helper = DatabaseHelper(url=settings.POSTGRES_URL)
+
+
+@asynccontextmanager
+async def get_async_session_generator() -> AsyncGenerator[AsyncSession, None]:
+    async with db_helper.session_factory() as session:
+        yield session
+
+
+async def get_async_session() -> AsyncSession:
+    return db_helper.session_factory()

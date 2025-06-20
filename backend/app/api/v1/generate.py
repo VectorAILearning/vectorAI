@@ -1,13 +1,14 @@
 import uuid
 
+from core.database import get_async_session
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from models.task import TaskTypeEnum
 from schemas.generate import GenerateDeepEnum
 from schemas.task import TaskIn, TaskOut
-from services.learning_service.service import LearningService
-from services.session_service.service import SessionService
-from services.task_service.service import TaskService
-from utils.uow import UnitOfWork, get_uow
+from services.learning_service.service import get_learning_service
+from services.session_service.service import get_session_service
+from services.task_service.service import get_task_service
+from sqlalchemy.ext.asyncio import AsyncSession
 
 generate_router = APIRouter(tags=["generate"])
 
@@ -19,11 +20,13 @@ async def generate_lesson_content(
     force: bool = Query(
         False, description="Перегенерировать контент, если уже существует"
     ),
-    uow: UnitOfWork = Depends(get_uow),
+    async_session: AsyncSession = Depends(get_async_session),
 ):
-    session_id = await SessionService(uow).get_session_id_by_request(request)
+    session_service = get_session_service(async_session)
+    session_id = await session_service.get_session_id_by_request(request)
 
-    lesson = await LearningService(uow).get_lesson_by_id(lesson_id)
+    learning_service = get_learning_service(async_session)
+    lesson = await learning_service.get_lesson_by_id(lesson_id)
     if not lesson:
         raise HTTPException(status_code=404, detail="Урок не найден")
 
@@ -33,7 +36,7 @@ async def generate_lesson_content(
                 status_code=400, detail="Контент для этого урока уже сгенерирован"
             )
         for content in lesson.contents:
-            await uow.session.delete(content)
+            await async_session.delete(content)
 
     user_preferences = lesson.module.course.preference.summary
 
@@ -45,7 +48,8 @@ async def generate_lesson_content(
         session_id=session_id,
     )
 
-    task = await TaskService(uow).create_task(
+    task_service = get_task_service(async_session)
+    task = await task_service.create_task(
         TaskIn(
             id=job.job_id,
             task_type=TaskTypeEnum.generate_lesson,

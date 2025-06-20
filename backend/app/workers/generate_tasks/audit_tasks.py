@@ -1,11 +1,12 @@
 import logging
 import uuid
 
+from core.database import get_async_session_generator
 from models.task import TaskTypeEnum
 from schemas.audit import PreferenceOut
 from schemas.generate import GenerateDeepEnum, GenerateTaskContext
 from services.message_bus import push_and_publish
-from utils import _msg, uow_context
+from utils import _msg
 from workers.generate_tasks.helpers import (
     _fail_course_generation_session,
     _fail_task,
@@ -36,21 +37,20 @@ async def generate_user_summary(
     Returns:
         PreferenceOut: предпочтение пользователя
     """
-    from services.audit_service.service import AuditDialogService
+    from services.audit_service.service import get_audit_service
 
     try:
         await push_and_publish(
             _msg("bot", "Анализируем ваши предпочтения…", "chat_info"), session_id
         )
-        async with uow_context() as uow:
-            await _start_task(uow, ctx["job_id"])
+        async with get_async_session_generator() as session:
+            audit_service = get_audit_service(session)
+            await _start_task(session, ctx["job_id"])
 
-            user_pref = (
-                await AuditDialogService().create_user_preference_by_audit_history(
-                    audit_history=audit_history,
-                    sid=session_id,
-                    user_id=user_id,
-                )
+            user_pref = await audit_service.create_user_preference_by_audit_history(
+                audit_history=audit_history,
+                sid=session_id,
+                user_id=user_id,
             )
 
             await push_and_publish(
@@ -79,7 +79,7 @@ async def generate_user_summary(
                     await _finish_course_generation_session(session_id)
 
             await _finish_task(
-                uow,
+                session,
                 ctx["job_id"],
                 PreferenceOut.model_validate(user_pref).model_dump_json(),
             )
@@ -89,10 +89,9 @@ async def generate_user_summary(
         log.exception(
             f"Ошибка при генерации предпочтения пользователя: {e} session_id={session_id}"
         )
-        await _fail_course_generation_session(session_id)
-        async with uow_context() as uow:
-            await _fail_task(ctx["job_id"], str(e))
-
+        async with get_async_session_generator() as session:
+            await _fail_task(session, ctx["job_id"], str(e))
+            await _fail_course_generation_session(session_id)
             if generate_tasks_context.main_task_id:
-                await _fail_task(generate_tasks_context.main_task_id, str(e))
+                await _fail_task(session, generate_tasks_context.main_task_id, str(e))
         raise
