@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef } from "react";
-import { me, setAvatar } from "../store/userSlice.ts";
+import React, { useCallback, useRef } from "react";
+import {  setAvatar } from "../store/userSlice.ts";
 import { useAppDispatch, useAppSelector } from "../store";
 
 const UserProfilePage = () => {
@@ -30,7 +30,6 @@ const UserProfilePage = () => {
     },
     [],
   );
-
 
   return (
     <div className="container max-w-2xl mx-auto py-8 mt-16">

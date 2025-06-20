@@ -19,6 +19,12 @@ const axiosInstance = axios.create({
   withCredentials: true,
 });
 
+const refreshAxios = axios.create({
+  baseURL: `${apiHost}/api/v1`,
+  headers: { "Content-Type": "application/json" },
+  withCredentials: true,
+});
+
 let isRefreshing = false;
 let failedQueue: any[] = [];
 
@@ -74,29 +80,28 @@ axiosInstance.interceptors.request.use(async (config) => {
 });
 
 axiosInstance.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-      const originalRequest = error.config;
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
 
-      if (error.response?.status === 401 && !originalRequest._retry) {
-        originalRequest._retry = true;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
 
-        try {
-          const { data } = await axiosInstance.post<IToken>("/auth/refresh");
+      try {
+        const { data } = await refreshAxios.post<IToken>("/auth/refresh");
 
-          localStorage.setItem("token", data.access_token);
-          store.dispatch(updateToken(data));
+        localStorage.setItem("token", data.access_token);
+        store.dispatch(updateToken(data));
 
-          originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
-          return axiosInstance(originalRequest);
-        } catch (err) {
-          store.dispatch(logOut());
-          return Promise.reject(err);
-        }
+        originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
+        return axiosInstance(originalRequest);
+      } catch (err) {
+        store.dispatch(logOut());
+        return Promise.reject(err);
       }
-
-      return Promise.reject(error);
-    },
+    }
+    return Promise.reject(error);
+  },
 );
 
 export default axiosInstance;

@@ -10,6 +10,7 @@ import {
   useDispatch,
   useSelector,
 } from "react-redux";
+import passwordSlice from "./passwordSlice.ts";
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     userCourses: userCoursesReducer,
     ui: uiReducer,
     auth: authReducer,
+    password: passwordSlice,
   },
 });
 

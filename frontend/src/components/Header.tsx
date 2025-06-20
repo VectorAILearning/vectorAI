@@ -8,6 +8,7 @@ import { toggleSidebar } from "../store/uiSlice.ts";
 import { setSelectedCourse } from "../store/userCoursesSlice.ts";
 import { FiMenu, FiBookOpen, FiUser, FiLogOut } from "react-icons/fi";
 import { logOut } from "../store/authSlice.ts";
+import axios from "../api/axiosInstance.ts";
 
 interface HeaderProps {
   showCourseSelector?: boolean;
@@ -28,7 +29,9 @@ export default function Header({
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const respons = await axios.post("/auth/logout");
+    // console.log(respons);
     if (isAuth) {
       dispatch(logOut());
     }
