@@ -15,10 +15,11 @@ import CheckEmailPage from "./pages/CheckEmailPage.tsx";
 import VerifyEmailPage from "./pages/VerifyEmailPage.tsx";
 import PrivateRoute from "./components/PrivateRoute.tsx";
 import PublicRoute from "./components/PublicRoute.tsx";
-import {useAuthUser} from "./hooks/useAuthUser.ts";
+import { useAuthUser } from "./hooks/useAuthUser.ts";
+import ResetPasswordPage from "./pages/ResetPasswordPage.tsx";
 
 export default function App() {
-    useAuthUser();
+  useAuthUser();
   return (
     <BrowserRouter>
       <Routes>
@@ -35,6 +36,8 @@ export default function App() {
           <Route path="/auth/recover" element={<ForgetPasswordPage />} />
           <Route path="/auth/changepass" element={<ChangePasswordPage />} />
           <Route path="/auth/register" element={<RegisterPage />} />
+          <Route path="/reset_password" element={<ResetPasswordPage />} />
+
           <Route
             path="/profile"
             element={

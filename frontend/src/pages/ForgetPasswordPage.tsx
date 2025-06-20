@@ -1,36 +1,29 @@
 import { useState, type FormEvent } from "react";
+import { useAppDispatch, useAppSelector } from "../store";
+import { requestPasswordReset } from "../store/passwordSlice.ts";
+import {Navigate} from "react-router-dom";
 
 export default function ForgetPasswordPage() {
-  const [email, setEmail] = useState<string | null>("");
-  const [isSubmited, setIsSubmited] = useState<boolean>(false);
-  const [isSubmiting, setIsSubmiting] = useState<boolean>(false);
+  const [email, setEmail] = useState<string>("");
 
-  const handleSubmit = async (e: FormEvent) => {
+  const dispatch = useAppDispatch();
+  const { status, error, message } = useAppSelector((state) => state.password);
+
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    setIsSubmited(true);
-    try {
-      await new Promise(() =>
-        setTimeout(() => {
-          setIsSubmiting(true);
-        }, 1000),
-      );
-    } finally {
-      setIsSubmiting(false);
-    }
+
+    dispatch(requestPasswordReset(email));
   };
+
   return (
     <section className="min-h-screen flex flex-col items-center justify-center p-4 bg-base-100">
       <div className="flex items-center w-full max-w-md flex-col mx-auto gap-5 p-8 bg-base-200 rounded-xl shadow-lg border border-base-300">
-        {isSubmiting ? (
+        {status === "succeeded" ? (
           <div className="text-center">
             <h6 className="text-lg font-bold text-xl mb-4 text-base-content">
               Проверьте вашу почту
             </h6>
-            <p className="text-base-content text-sm">
-              Письмо с инструкциями по восстановлению пароля было отправлено на
-              <br />
-              <span className="font-medium">{email}</span>
-            </p>
+            <p className="text-base-content text-sm">{message}</p>
           </div>
         ) : (
           <>
@@ -41,7 +34,7 @@ export default function ForgetPasswordPage() {
               <div className="flex flex-col gap-3">
                 {/* input email */}
                 <div className="flex">
-                  <h6 className="text-base-content text-sm">Почта</h6>
+                  <h6 className="text-base-content text-sm text-red-600">{error}</h6>
                 </div>
                 <label className="input validator">
                   <svg
@@ -64,7 +57,6 @@ export default function ForgetPasswordPage() {
                     type="email"
                     placeholder="Почта"
                     required
-                    disabled={isSubmited}
                     className="text-base-content"
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -73,11 +65,8 @@ export default function ForgetPasswordPage() {
                   Укажите действующую почту
                 </div>
                 <div className="flex w-full">
-                  <button
-                    disabled={isSubmited}
-                    className="btn btn-primary w-full max-w-xs md:btn-md mt-[10px] font-medium"
-                  >
-                    {isSubmited ? (
+                  <button className="btn btn-primary w-full max-w-xs md:btn-md mt-[10px] font-medium">
+                    {status == "loading" ? (
                       <div className="btn-square flex justify-center">
                         <span className="loading loading-spinner"></span>
                       </div>
