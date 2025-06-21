@@ -35,44 +35,12 @@ services:
       - ailearning_network
     volumes:
       - ./backend/app:/app/app
+    working_dir: /app/app
     command: >
       sh -c "
-        cd /app/app &&
         uv run alembic upgrade head &&
-        uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload --workers 1 --forwarded-allow-ips='*' --proxy-headers
+        uv run uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1 --forwarded-allow-ips='*' --proxy-headers
       "
-
-  redis:
-    image: redis:alpine
-    container_name: redis_ailearning
-    volumes:
-      - redis_data:/data
-    env_file:
-      - .env
-    ports:
-      - "6379:6379"
-    restart: always
-    networks:
-      - ailearning_network
-
-  arq_worker:
-    build: backend
-    container_name: ailearning_arq_worker
-    restart: unless-stopped
-    env_file:
-      - .env
-    depends_on:
-      - redis
-      - api
-    networks:
-      - ailearning_network
-    volumes:
-      - ./backend/app:/app/app
-    working_dir: /app/app
-    environment:
-      - PYTHONPATH=/app/app
-    command: >
-      uv run arq workers.arq_worker.WorkerSettings
 
   frontend:
     build: frontend
@@ -99,10 +67,7 @@ services:
 
 volumes:
   postgres_data_ailearning:
-  redis_data:
-  app_data:
   frontend_dist:
-
 
 networks:
   ailearning_network:

@@ -1,5 +1,4 @@
 import logging
-import uuid
 from urllib.parse import urlencode
 
 from core.config import settings
@@ -18,8 +17,6 @@ from schemas.auth import (
     UserRegister,
 )
 from services.auth.service import get_auth_service
-from services.learning_service.service import get_learning_service
-from services.session_service.service import get_session_service
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.auth_utils import is_user
 
@@ -46,31 +43,15 @@ async def login(
         )
         if not user:
             raise HTTPException(status_code=400, detail="Неверный email или пароль")
+
         access_token = auth_service.create_access_token(data={"sub": user.email})
-
-        sid = request.cookies.get(settings.SESSION_COOKIE_KEY)
-
-        session_service = get_session_service(async_session)
-        if not sid or not await session_service.check_session(sid):
-            session_info = await session_service.create_session()
-            response.set_cookie(
-                key=settings.SESSION_COOKIE_KEY,
-                value=session_info["session_id"],
-                httponly=True,
-                secure=settings.SECURE_COOKIES,
-                samesite="lax",
-                max_age=settings.SESSION_TTL,
-            )
-            sid = session_info["session_id"]
-
-        await session_service.attach_user(sid, str(user.id))
-        learning_service = get_learning_service(async_session)
-        await learning_service.init_user_courses_by_session_id(user.id, uuid.UUID(sid))
         refresh_token = await auth_service.create_refresh_token(user_id=user.id)
+
         if not refresh_token:
             raise HTTPException(
                 status_code=500, detail="Не удалось создать refresh_token"
             )
+
         response.set_cookie(
             key="refresh_token",
             value=refresh_token.token,

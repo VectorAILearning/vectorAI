@@ -1,19 +1,12 @@
 [project]
 name = "ailearning-backend"
 version = "0.1.0"
-description = "AI Learning Backend API"
+description = "AI Learning Backend API - Auth Only"
 readme = "../README.md"
 requires-python = ">=3.12"
 dependencies = [
     "black>=25.1.0",
     "isort>=6.0.1",
-    "langchain[openai]>=0.3.25",
-    "langchain-openai>=0.3.17",
-    "openai-agents[litellm]>=0.0.15",
-    "python-dotenv>=1.1.0",
-    "reportlab>=4.4.1",
-    "langchain-community>=0.3.24",
-    "langgraph>=0.4.5",
     "fastapi>=0.115.12",
     "uvicorn[standard]>=0.34.2",
     "sqlalchemy[asyncio]>=2.0.41",
@@ -22,10 +15,6 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "pydantic[email]>=2.6.1",
     "pydantic-settings>=2.1.0",
-    "aioredis>=2.0.1",
-    "redis>=6.1.0",
-    "arq>=0.25.0",
-    "broadcaster>=0.3.1",
     "pyjwt>=2.10.1",
     "passlib[bcrypt]>=1.7.4",
     "fastapi-security>=0.1.0",
@@ -34,6 +23,7 @@ dependencies = [
     "alembic-postgresql-enum>=1.7.0",
     "alembic-utils>=0.8.8",
     "httpx>=0.28.1",
+    "python-multipart>=0.0.12",
 ]
 
 [tool.ruff]

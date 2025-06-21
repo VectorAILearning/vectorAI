@@ -1,8 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit";
-import sessionReducer from "./sessionSlice";
 import userReducer from "./userSlice.ts";
-import uiReducer from "./uiSlice.ts";
-import userCoursesReducer from "./userCoursesSlice.ts";
 import authReducer from "./authSlice";
 
 import {
@@ -14,10 +11,7 @@ import passwordSlice from "./passwordSlice.ts";
 
 export const store = configureStore({
   reducer: {
-    session: sessionReducer,
     user: userReducer,
-    userCourses: userCoursesReducer,
-    ui: uiReducer,
     auth: authReducer,
     password: passwordSlice,
   },

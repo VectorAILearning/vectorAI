@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 
 from core.database import Base
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql.functions import func
@@ -30,47 +30,9 @@ class UserModel(Base):
         SqlEnum(UserRole, name="user_role_enum"), default=UserRole.USER, nullable=False
     )
 
-    courses: Mapped[list["CourseModel"]] = relationship(back_populates="user")
-    preferences: Mapped[list["PreferenceModel"]] = relationship(back_populates="user")
     refresh_tokens: Mapped[list["RefreshTokenModel"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
-    )
-
-
-class PreferenceModel(Base):
-    __tablename__ = "preferences"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
-    )
-    session_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("sessions.id"), nullable=True
-    )
-    course_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("courses.id"), unique=True, nullable=True
-    )
-    summary: Mapped[str] = mapped_column(Text, nullable=True)
-
-    user: Mapped["UserModel"] = relationship("UserModel", back_populates="preferences")
-    course: Mapped["CourseModel"] = relationship(
-        "CourseModel", back_populates="preference"
-    )
-    session = relationship("SessionModel", back_populates="preferences")
-
-
-class SessionModel(Base):
-    __tablename__ = "sessions"
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-
-    courses: Mapped[list["CourseModel"]] = relationship(back_populates="session")
-    preferences: Mapped[list["PreferenceModel"]] = relationship(
-        back_populates="session"
     )
 
 
