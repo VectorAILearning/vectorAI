@@ -3,6 +3,7 @@ import sys
 
 from api.v1.router import api_v1_router
 from core.config import settings
+from core.exception_handler import register_exception_handlers
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -30,5 +31,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Регистрация обработчиков исключений
+register_exception_handlers(app)
 
 app.include_router(api_v1_router)

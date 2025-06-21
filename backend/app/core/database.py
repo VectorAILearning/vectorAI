@@ -1,4 +1,3 @@
-from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Self
 
 from core.config import settings
@@ -47,13 +46,3 @@ if settings.POSTGRES_URL is None:
     raise ValueError("POSTGRES_URL не может быть None")
 
 db_helper = DatabaseHelper(url=settings.POSTGRES_URL)
-
-
-@asynccontextmanager
-async def get_async_session_generator() -> AsyncGenerator[AsyncSession, None]:
-    async with db_helper.session_factory() as session:
-        yield session
-
-
-async def get_async_session() -> AsyncSession:
-    return db_helper.session_factory()

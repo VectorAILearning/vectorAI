@@ -7,7 +7,17 @@ import bcrypt
 import httpx
 import jwt
 from core.config import settings
-from fastapi import HTTPException, status
+from core.constants import AuthErrorMessages
+from core.exceptions import (
+    AuthenticationError,
+    AuthorizationError,
+    DatabaseError,
+    DuplicateError,
+    ExternalServiceError,
+    NotFoundError,
+    TokenError,
+    ValidationError,
+)
 from models import RefreshTokenModel, UserModel
 from pydantic import EmailStr
 from schemas import Token
@@ -15,15 +25,6 @@ from services.auth.repositories.auth import AuthRepository
 from services.auth.repositories.token_refresh import RefreshTokenRepository
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.email_sender import send_password_reset_email, send_verification_email
-
-
-def get_auth_service(session: AsyncSession) -> "AuthService":
-    """
-    Фабричный метод для создания AuthService с инициализированными репозиториями
-    """
-    auth_repo = AuthRepository(session)
-    refresh_token_repo = RefreshTokenRepository(session)
-    return AuthService(session, auth_repo, refresh_token_repo)
 
 
 class AuthService:
@@ -38,14 +39,16 @@ class AuthService:
         self.refresh_token_repo = refresh_token_repo
 
     @staticmethod
-    def verify_password(plain_password, hashed_password):
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        """Проверка пароля против хеша"""
         return bcrypt.checkpw(
             bytes(plain_password, encoding="utf-8"),
             bytes(hashed_password, encoding="utf-8"),
         )
 
     @staticmethod
-    def get_password_hash(password):
+    def get_password_hash(password: str) -> str:
+        """Создание хеша пароля"""
         hashed = bcrypt.hashpw(
             password.encode("utf-8"),
             bcrypt.gensalt(rounds=12),
@@ -54,6 +57,7 @@ class AuthService:
 
     @staticmethod
     def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+        """Создание JWT access токена"""
         to_encode = data.copy()
         expire = datetime.now(timezone.utc) + (
             expires_delta or timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -64,56 +68,139 @@ class AuthService:
         )
         return encoded_jwt
 
-    async def authenticate_user(
-        self, email: EmailStr, password: str
-    ) -> UserModel | None:
-        user = await self.auth_repo.get_by_email(email)
-        if not user or not self.verify_password(password, user.password):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Неверный email или пароль",
-            )
+    async def authenticate_user(self, email: EmailStr, password: str) -> UserModel:
+        """
+        Аутентификация пользователя по email и паролю.
 
-        if not user.is_verified:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Email не подтвержден"
-            )
-        return user
+        Args:
+            email: Email пользователя для поиска в БД
+            password: Пароль пользователя в открытом виде
+
+        Returns:
+            UserModel: Аутентифицированный пользователь
+
+        Raises:
+            AuthenticationError: При неверных данных для входа
+            AuthorizationError: При неподтвержденном email
+            DatabaseError: При ошибке базы данных
+
+        Note:
+            Пароль проверяется с использованием bcrypt для безопасности
+        """
+        # Валидация входных данных
+        if not email or not password:
+            raise AuthenticationError("Email и пароль обязательны")
+
+        if len(password.strip()) < 3:  # Базовая валидация
+            raise AuthenticationError(AuthErrorMessages.INVALID_CREDENTIALS)
+
+        try:
+            user = await self.auth_repo.get_by_email(email)
+            if not user or not self.verify_password(password, user.password):
+                raise AuthenticationError(AuthErrorMessages.INVALID_CREDENTIALS)
+
+            if not user.is_verified:
+                raise AuthorizationError(AuthErrorMessages.EMAIL_NOT_VERIFIED)
+
+            return user
+        except (AuthenticationError, AuthorizationError):
+            # Пропускаем наши кастомные исключения
+            raise
+        except Exception as e:
+            # Оборачиваем другие исключения
+            raise DatabaseError(AuthErrorMessages.AUTHENTICATION_FAILED) from e
 
     async def register_user(self, email: EmailStr, password: str) -> UserModel:
-        existing_user = await self.auth_repo.get_by_email(email)
-        if existing_user:
-            raise HTTPException(status_code=400, detail="Пользователь уже существует")
-        hashed_password = self.get_password_hash(password)
-        username = email.split("@")[0]
-        user = UserModel(email=email, password=hashed_password, username=username)
-        self.session.add(user)
-        await self.session.commit()
-        await self.session.refresh(user)
-        verification_token = self.create_email_verification_token(user.email)
-        await send_verification_email(email, verification_token)
-        return user
+        """
+        Регистрация нового пользователя с валидацией данных.
+
+        Args:
+            email: Email пользователя (будет использован как username)
+            password: Пароль пользователя (минимум 6 символов)
+
+        Returns:
+            UserModel: Созданный пользователь (с is_verified=False)
+
+        Raises:
+            DuplicateError: Если пользователь с таким email уже существует
+            ValidationError: Если данные не прошли валидацию
+            DatabaseError: При ошибке сохранения в БД
+
+        Note:
+            После регистрации отправляется email с токеном подтверждения
+        """
+        # Валидация входных данных
+        if not email or not password:
+            raise ValidationError("Email и пароль обязательны")
+
+        if len(password.strip()) < 6:
+            raise ValidationError("Пароль должен содержать минимум 6 символов")
+
+        if len(email.strip()) < 5 or "@" not in email:
+            raise ValidationError("Некорректный формат email")
+
+        try:
+            # Проверяем существование пользователя
+            if await self.auth_repo.email_exists(email):
+                raise DuplicateError("User", "email", email)
+
+            # Создаем пользователя
+            hashed_password = self.get_password_hash(password)
+            username = email.split("@")[0]
+            user = UserModel(email=email, password=hashed_password, username=username)
+
+            # Сохраняем в БД
+            await self.auth_repo.save(user)
+            await self.session.commit()
+            await self.session.refresh(user)
+
+            # Отправляем email подтверждения
+            verification_token = self.create_email_verification_token(user.email)
+            await send_verification_email(email, verification_token)
+
+            return user
+        except (DuplicateError, ValidationError):
+            # Пропускаем кастомные исключения
+            raise
+        except Exception as e:
+            # Откатываем транзакцию и оборачиваем в DatabaseError
+            await self.session.rollback()
+            raise DatabaseError(AuthErrorMessages.REGISTRATION_FAILED) from e
 
     @staticmethod
     def _generate_refresh_token_string(length: int = 64) -> str:
+        """Генерация строки refresh токена"""
         return secrets.token_urlsafe(length)
 
-    async def create_refresh_token(
-        self,
-        user_id: uuid.UUID,
-    ) -> RefreshTokenModel:
-        await self.refresh_token_repo.revoke_all_for_user(user_id)
+    async def create_refresh_token(self, user_id: uuid.UUID) -> RefreshTokenModel:
+        """
+        Создание нового refresh токена для пользователя.
 
-        token_str = self._generate_refresh_token_string()
-        expires_delta = timedelta(minutes=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES)
-        expires_at = datetime.now(timezone.utc) + expires_delta
-        refresh_token_db = RefreshTokenModel(
-            user_id=user_id, token=token_str, expires_at=expires_at
-        )
-        self.session.add(refresh_token_db)
-        await self.session.commit()
-        await self.session.refresh(refresh_token_db)
-        return refresh_token_db
+        Args:
+            user_id: ID пользователя
+
+        Returns:
+            Созданный refresh токен
+
+        Raises:
+            DatabaseError: При ошибке создания токена
+        """
+        try:
+            await self.refresh_token_repo.revoke_all_for_user(user_id)
+
+            token_str = self._generate_refresh_token_string()
+            expires_delta = timedelta(minutes=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES)
+            expires_at = datetime.now(timezone.utc) + expires_delta
+            refresh_token_db = RefreshTokenModel(
+                user_id=user_id, token=token_str, expires_at=expires_at
+            )
+            self.session.add(refresh_token_db)
+            await self.session.commit()
+            await self.session.refresh(refresh_token_db)
+            return refresh_token_db
+        except Exception as e:
+            await self.session.rollback()
+            raise DatabaseError(AuthErrorMessages.REFRESH_TOKEN_CREATION_FAILED) from e
 
     @staticmethod
     def create_email_verification_token(email: EmailStr) -> str:
@@ -151,66 +238,40 @@ class AuthService:
                 token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
             )
             if payload.get("type") != "email_verification":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Неверный тип токена",
-                )
+                raise AuthenticationError(AuthErrorMessages.INVALID_TOKEN_TYPE)
             email: EmailStr = payload.get("sub")
             if not email:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Токен не содержит email",
-                )
+                raise AuthenticationError(AuthErrorMessages.TOKEN_MISSING_EMAIL)
 
             user = await self.auth_repo.get_by_email(email)
             if not user:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Пользователь не найден",
-                )
+                raise NotFoundError("User", email)
             if user.is_verified:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Email уже подтвержден",
-                )
+                raise AuthenticationError(AuthErrorMessages.EMAIL_ALREADY_VERIFIED)
 
             user.is_verified = True
             self.session.add(user)
             await self.session.commit()
             return True
         except jwt.ExpiredSignatureError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Токен просрочен"
-            )
+            raise AuthenticationError(AuthErrorMessages.TOKEN_EXPIRED)
         except jwt.InvalidTokenError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный токен"
-            )
+            raise AuthenticationError(AuthErrorMessages.INVALID_TOKEN)
 
     async def refresh_access_token(self, refresh_token_str: str) -> dict[str, str]:
         rt_from_db = await self.refresh_token_repo.get_by_token(refresh_token_str)
         if not rt_from_db:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Refresh token не найден",
-            )
+            raise AuthenticationError(AuthErrorMessages.REFRESH_TOKEN_NOT_FOUND)
         if rt_from_db.revoked:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token отозван"
-            )
+            raise AuthenticationError(AuthErrorMessages.REFRESH_TOKEN_REVOKED)
         if rt_from_db.expires_at <= datetime.now(timezone.utc):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token истёк"
-            )
+            raise AuthenticationError(AuthErrorMessages.REFRESH_TOKEN_EXPIRED)
 
         user = rt_from_db.user
         if not user:
             _user_check = await self.auth_repo.get_by_id(ident=rt_from_db.user_id)
             if not _user_check:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Пользователь не найден",
-                )
+                raise AuthenticationError(AuthErrorMessages.USER_NOT_FOUND)
             user = _user_check
         new_access_token = self.create_access_token(data={"sub": user.email})
 
@@ -225,9 +286,7 @@ class AuthService:
     async def forgot_password(self, email: EmailStr):
         user = await self.auth_repo.get_by_email(email)
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден"
-            )
+            raise NotFoundError("User", email)
         reset_token = self.create_password_reset_token(email)
         await send_password_reset_email(email, reset_token)
 
@@ -237,30 +296,18 @@ class AuthService:
                 token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
             )
             if payload.get("type") != "password_reset":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Неверный тип токена",
-                )
+                raise AuthenticationError(AuthErrorMessages.INVALID_TOKEN_TYPE)
             email: str = payload.get("sub")
             if not email:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Токен не содержит email",
-                )
+                raise AuthenticationError(AuthErrorMessages.TOKEN_MISSING_EMAIL)
         except jwt.ExpiredSignatureError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Токен просрочен"
-            )
+            raise AuthenticationError(AuthErrorMessages.TOKEN_EXPIRED)
         except jwt.InvalidTokenError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный токен"
-            )
+            raise AuthenticationError(AuthErrorMessages.INVALID_TOKEN)
 
         user = await self.auth_repo.get_by_email(email)
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден"
-            )
+            raise NotFoundError("User", email)
 
         user.password = self.get_password_hash(new_password)
         self.session.add(user)
@@ -280,9 +327,10 @@ class AuthService:
             token_response = await client.post(token_url, data=token_data)
 
         if token_response.status_code != 200:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Не удалось получить токен от Google",
+            raise ExternalServiceError(
+                "Google",
+                AuthErrorMessages.GOOGLE_TOKEN_FAILED,
+                token_response.status_code,
             )
 
         token_json = token_response.json()
@@ -295,18 +343,16 @@ class AuthService:
             user_response = await client.get(user_info_url, headers=headers)
 
         if user_response.status_code != 200:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Не удалось получить информацию о пользователе",
+            raise ExternalServiceError(
+                "Google",
+                AuthErrorMessages.GOOGLE_USER_INFO_FAILED,
+                user_response.status_code,
             )
 
         user_info = user_response.json()
         email = user_info.get("email")
         if not email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email не получен от Google",
-            )
+            raise ExternalServiceError("Google", AuthErrorMessages.GOOGLE_EMAIL_MISSING)
 
         user = await self.auth_repo.get_by_email(email)
         if not user:

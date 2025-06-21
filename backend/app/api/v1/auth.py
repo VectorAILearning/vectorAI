@@ -2,7 +2,8 @@ import logging
 from urllib.parse import urlencode
 
 from core.config import settings
-from core.database import get_async_session
+from core.constants import AuthErrorMessages
+from core.dependencies import get_auth_service
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -16,12 +17,10 @@ from schemas.auth import (
     Token,
     UserRegister,
 )
-from services.auth.service import get_auth_service
-from sqlalchemy.ext.asyncio import AsyncSession
+from services.auth.service import AuthService
 from utils.auth_utils import is_user
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
-
 
 log = logging.getLogger(__name__)
 
@@ -31,250 +30,166 @@ async def login(
     request: Request,
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    async_session: AsyncSession = Depends(get_async_session),
+    auth_service: AuthService = Depends(get_auth_service),
 ):
     """
     Авторизация пользователя.
+
+    Args:
+        request: HTTP запрос
+        response: HTTP ответ
+        form_data: Форма с данными логина
+        auth_service: Сервис аутентификации (из DI контейнера)
+
+    Returns:
+        Token: JWT токены для доступа
     """
-    try:
-        auth_service = get_auth_service(async_session)
-        user = await auth_service.authenticate_user(
-            form_data.username, form_data.password
-        )
-        if not user:
-            raise HTTPException(status_code=400, detail="Неверный email или пароль")
+    user = await auth_service.authenticate_user(form_data.username, form_data.password)
 
-        access_token = auth_service.create_access_token(data={"sub": user.email})
-        refresh_token = await auth_service.create_refresh_token(user_id=user.id)
+    access_token = auth_service.create_access_token(data={"sub": user.email})
+    refresh_token = await auth_service.create_refresh_token(user_id=user.id)
 
-        if not refresh_token:
-            raise HTTPException(
-                status_code=500, detail="Не удалось создать refresh_token"
-            )
-
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token.token,
-            httponly=True,
-            secure=settings.SECURE_COOKIES,
-            samesite="lax",
-            max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
-        )
-        return Token(access_token=access_token)
-    except HTTPException as e:
-        log.exception(f"Error in login: {e}")
-        raise e
-    except Exception as e:
-        log.exception(f"Error in login: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка на стороне сервера",
-        )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token.token,
+        httponly=True,
+        secure=settings.SECURE_COOKIES,
+        samesite="lax",
+        max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
+    )
+    return Token(access_token=access_token)
 
 
 @auth_router.post("/register", response_model=RegistrationResponse)
 async def register(
     user_data: UserRegister,
-    async_session: AsyncSession = Depends(get_async_session),
+    auth_service: AuthService = Depends(get_auth_service),
 ):
     """
     Регистрация пользователя. На указанную почту отправляется письмо для подтверждения.
-    Курсы пользователя созданные в сессии подвязываются к его аккаунту.
     """
-    try:
-        auth_service = get_auth_service(async_session)
-        await auth_service.register_user(user_data.username, user_data.password)
+    await auth_service.register_user(user_data.username, user_data.password)
 
-        return RegistrationResponse(
-            result=f"На вашу почту {user_data.username} "
-            f"отправлено письмо для подтверждения учетной записи"
-        )
-    except HTTPException as e:
-        log.exception(f"Error in register: {e}")
-        raise e
-    except Exception as e:
-        log.exception(f"Error in register: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка на стороне сервера",
-        )
+    return RegistrationResponse(
+        result=AuthErrorMessages.EMAIL_VERIFICATION_SENT.format(user_data.username)
+    )
 
 
 @auth_router.post("/refresh", response_model=Token)
 async def refresh_token(
     response: Response,
     request: Request,
-    async_session: AsyncSession = Depends(get_async_session),
+    auth_service: AuthService = Depends(get_auth_service),
 ):
     """
     Обновление access_token с помощью refresh_token.
     """
-    try:
-        auth_service = get_auth_service(async_session)
-        old_refresh_token = request.cookies.get("refresh_token")
-        if not old_refresh_token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Refresh token не найден",
-            )
-        new_tokens = await auth_service.refresh_access_token(old_refresh_token)
-        if not new_tokens:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Не удалось обновить токен",
-            )
-        response.set_cookie(
-            key="refresh_token",
-            value=new_tokens["refresh_token"],
-            httponly=True,
-            secure=settings.SECURE_COOKIES,
-            samesite="lax",
-            max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
-        )
-        return Token(access_token=new_tokens["access_token"])
-    except HTTPException as e:
-        log.exception(f"Error in refresh: {e}")
-        raise e
-    except Exception as e:
-        log.exception(f"Error in refresh: {e}")
+    old_refresh_token = request.cookies.get("refresh_token")
+    if not old_refresh_token:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка сервера"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=AuthErrorMessages.REFRESH_TOKEN_NOT_FOUND,
         )
+
+    new_tokens = await auth_service.refresh_access_token(old_refresh_token)
+
+    response.set_cookie(
+        key="refresh_token",
+        value=new_tokens["refresh_token"],
+        httponly=True,
+        secure=settings.SECURE_COOKIES,
+        samesite="lax",
+        max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
+    )
+    return Token(access_token=new_tokens["access_token"])
 
 
 @auth_router.post("/forgot-password", response_model=RegistrationResponse)
 async def forgot_password(
     request_password: ForgotPasswordRequest,
-    async_session: AsyncSession = Depends(get_async_session),
+    auth_service: AuthService = Depends(get_auth_service),
 ):
     """
     Отправка письма со ссылкой для сброса пароля.
     """
-    try:
-        auth_service = get_auth_service(async_session)
-        await auth_service.forgot_password(request_password.username)
-        return RegistrationResponse(
-            result=f"На вашу почту {request_password.username} отправлено письмо для сброса пароля."
-        )
-    except HTTPException as e:
-        log.exception(f"Error in forgot_password: {e}")
-        raise e
-    except Exception as e:
-        log.exception(f"Error in forgot_password: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка на стороне сервера",
-        )
+    await auth_service.forgot_password(request_password.username)
+    return RegistrationResponse(
+        result=AuthErrorMessages.PASSWORD_RESET_SENT.format(request_password.username)
+    )
 
 
 @auth_router.post("/reset-password", response_model=RegistrationResponse)
 async def reset_password(
     request: ResetPasswordRequest,
-    async_session: AsyncSession = Depends(get_async_session),
+    auth_service: AuthService = Depends(get_auth_service),
 ):
     """
     Сброс и установка нового пароля по токену из письма.
     """
-    try:
-        auth_service = get_auth_service(async_session)
-        await auth_service.reset_password(request.token, request.new_password)
-        return RegistrationResponse(result="Пароль успешно обновлен!")
-    except HTTPException as e:
-        log.exception(f"Error in reset_password: {e}")
-        raise e
-    except Exception as e:
-        log.exception(f"Error in reset_password: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка сервера"
-        )
+    await auth_service.reset_password(request.token, request.new_password)
+    return RegistrationResponse(result=AuthErrorMessages.PASSWORD_UPDATED)
 
 
 @auth_router.post("/google-callback", response_model=Token)
 async def auth_via_google(
     code: GoogleLoginRequest,
     response: Response,
-    async_session: AsyncSession = Depends(get_async_session),
+    auth_service: AuthService = Depends(get_auth_service),
 ):
     """
     Аутентификация через Google.
-    Принимает `code`, возвращает JWT-токены.
     """
-    try:
-        auth_service = get_auth_service(async_session)
-        user = await auth_service.login_with_google(code.code)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Не удалось аутентифицировать пользователя через Google",
-            )
-        access_token = auth_service.create_access_token(data={"sub": user.email})
-        refresh_token = await auth_service.create_refresh_token(user_id=user.id)
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token.token,
-            httponly=True,
-            secure=settings.SECURE_COOKIES,
-            samesite="lax",
-            max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
-        )
-        return Token(access_token=access_token)
-    except HTTPException as e:
-        log.exception(f"Error in auth_via_google: {e}")
-        raise e
-    except Exception as e:
-        log.exception(f"Error in auth_via_google: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка на стороне сервера при аутентификации через Google",
-        )
+    user = await auth_service.login_with_google(code.code)
+
+    access_token = auth_service.create_access_token(data={"sub": user.email})
+    refresh_token = await auth_service.create_refresh_token(user_id=user.id)
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token.token,
+        httponly=True,
+        secure=settings.SECURE_COOKIES,
+        samesite="lax",
+        max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_MINUTES,
+    )
+    return Token(access_token=access_token)
 
 
 @auth_router.get("/me", response_model=UserBase)
 async def me(current_user: UserModel = is_user):
     """
-    Получение информации о текущем (аутентифицированном) пользователе.
+    Получение информации о текущем пользователе.
     """
     return current_user
 
 
 @auth_router.get("/verify-email", response_model=RegistrationResponse)
 async def verify_email(
-    token: str, async_session: AsyncSession = Depends(get_async_session)
+    token: str, auth_service: AuthService = Depends(get_auth_service)
 ):
     """
     Подтверждение email по токену из письма.
     """
-    try:
-        auth_service = get_auth_service(async_session)
-        await auth_service.verify_user_email(token)
-        return RegistrationResponse(result="Email успешно подтвержден!")
-    except HTTPException as e:
-        log.exception(f"Error in verify_email: {e}")
-        raise e
-    except Exception as e:
-        log.exception(f"Error in verify_email: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка сервера"
-        )
+    await auth_service.verify_user_email(token)
+    return RegistrationResponse(result="Email успешно подтвержден!")
 
 
 @auth_router.get("/google")
 async def google_auth():
     """
-    Редиректит на страницу авторизации через Google.
+    Перенаправление на Google OAuth.
     """
-    query_params = {
+    google_auth_url = "https://accounts.google.com/o/oauth2/auth"
+    params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
         "redirect_uri": settings.GOOGLE_REDIRECT_URI,
-        "response_type": "code",
         "scope": "openid email profile",
+        "response_type": "code",
         "access_type": "offline",
         "prompt": "consent",
     }
-    google_auth_url = (
-        f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(query_params)}"
-    )
-    return RedirectResponse(url=google_auth_url)
+    url = f"{google_auth_url}?{urlencode(params)}"
+    return RedirectResponse(url=url)
 
 
 @auth_router.post("/logout", response_model=RegistrationResponse)
@@ -282,12 +197,7 @@ async def logout(
     response: Response,
 ):
     """
-    Выход пользователя. Удаляет куки refresh_token.
+    Выход из системы - удаление refresh_token cookie.
     """
-    response.delete_cookie(
-        key=settings.REFRESH_TOKEN_COOKIE_KEY,
-        httponly=True,
-        secure=settings.SECURE_COOKIES,
-        samesite="lax",
-    )
-    return RegistrationResponse(result="Вы успешно вышли из системы")
+    response.delete_cookie(key="refresh_token")
+    return RegistrationResponse(result=AuthErrorMessages.LOGOUT_SUCCESS)
