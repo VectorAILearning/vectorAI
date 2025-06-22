@@ -1,9 +1,9 @@
-import logging
 from typing import List
 
 import jwt
 from core.config import settings
 from core.dependencies import get_auth_service
+from core.logger import get_logger
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from models import UserModel, UserRole
@@ -12,7 +12,7 @@ from services.auth.service import AuthService
 from starlette import status
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="v1/auth/login")
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 
 def decode_access_token(token: str) -> dict | None:

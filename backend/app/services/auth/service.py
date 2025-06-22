@@ -25,6 +25,7 @@ from services.auth.repositories.auth import AuthRepository
 from services.auth.repositories.token_refresh import RefreshTokenRepository
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.email_sender import send_password_reset_email, send_verification_email
+from utils.log_helper import create_auth_logger, log_auth_event, log_business_event
 
 
 class AuthService:
@@ -37,6 +38,7 @@ class AuthService:
         self.session = session
         self.auth_repo = auth_repo
         self.refresh_token_repo = refresh_token_repo
+        self.logger = create_auth_logger()
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -97,11 +99,29 @@ class AuthService:
         try:
             user = await self.auth_repo.get_by_email(email)
             if not user or not self.verify_password(password, user.password):
+                log_auth_event(
+                    self.logger,
+                    "login",
+                    str(email),
+                    success=False,
+                    failure_reason="invalid_credentials",
+                )
                 raise AuthenticationError(AuthErrorMessages.INVALID_CREDENTIALS)
 
             if not user.is_verified:
+                log_auth_event(
+                    self.logger,
+                    "login",
+                    str(email),
+                    success=False,
+                    failure_reason="email_not_verified",
+                )
                 raise AuthorizationError(AuthErrorMessages.EMAIL_NOT_VERIFIED)
 
+            # Успешная аутентификация
+            log_auth_event(
+                self.logger, "login", str(email), success=True, user_id=str(user.id)
+            )
             return user
         except (AuthenticationError, AuthorizationError):
             # Пропускаем наши кастомные исключения
@@ -157,6 +177,16 @@ class AuthService:
             # Отправляем email подтверждения
             verification_token = self.create_email_verification_token(user.email)
             await send_verification_email(email, verification_token)
+
+            # Логируем успешную регистрацию
+            log_business_event(
+                self.logger,
+                "user_registration",
+                user_id=str(user.id),
+                entity_type="user",
+                entity_id=str(user.id),
+                user_email=str(email),
+            )
 
             return user
         except (DuplicateError, ValidationError):

@@ -3,7 +3,6 @@
 Маппинг кастомных исключений в HTTP ответы с consistent форматом.
 """
 
-import logging
 import uuid
 from typing import Any, Dict
 
@@ -20,11 +19,12 @@ from core.exceptions import (
     ValidationError,
     map_exception_to_http_status,
 )
+from core.logger import get_logger, set_request_id
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ErrorResponse:
@@ -71,13 +71,22 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         # Добавляем в state запроса
         request.state.request_id = request_id
 
-        # Выполняем запрос
-        response = await call_next(request)
+        # Устанавливаем request_id в контекст логгера
+        set_request_id(request_id)
 
-        # Добавляем request_id в заголовки ответа
-        response.headers[RequestTracing.HEADER_REQUEST_ID] = request_id
+        try:
+            # Выполняем запрос
+            response = await call_next(request)
 
-        return response
+            # Добавляем request_id в заголовки ответа
+            response.headers[RequestTracing.HEADER_REQUEST_ID] = request_id
+
+            return response
+        finally:
+            # Очищаем request_id из контекста после обработки запроса
+            from core.logger import clear_request_id
+
+            clear_request_id()
 
 
 def get_request_id(request: Request) -> str:

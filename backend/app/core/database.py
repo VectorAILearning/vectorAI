@@ -45,4 +45,10 @@ class DatabaseHelper:
 if settings.POSTGRES_URL is None:
     raise ValueError("POSTGRES_URL не может быть None")
 
-db_helper = DatabaseHelper(url=settings.POSTGRES_URL)
+db_helper = DatabaseHelper(
+    url=settings.POSTGRES_URL,
+    echo=settings.DB_ECHO,
+    echo_pool=settings.DB_ECHO_POOL,
+    max_overflow=settings.DB_MAX_OVERFLOW,
+    pool_size=settings.DB_POOL_SIZE,
+)

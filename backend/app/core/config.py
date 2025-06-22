@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = "127.0.0.1"
     POSTGRES_PORT: int = 5432
     POSTGRES_URL: Optional[URL] = None
+    DB_ECHO: bool = False
+    DB_ECHO_POOL: bool = False
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_SIZE: int = 5
 
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
@@ -44,6 +48,11 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = ""
+
+    # Logging settings
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "JSON"  # TEXT or JSON
+    LOG_FILE: Optional[str] = None
 
     @field_validator("REDIS_URL", mode="before")
     def assemble_redis_url(cls, v, values):
